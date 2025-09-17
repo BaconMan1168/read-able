@@ -16,7 +16,17 @@ function App() {
     chrome.tabs.query({active: "true"}, (tabs) => {
       chrome.tabs.sendMessage(tabs[0], {
         action: "toggleDyslexiaFont",
-        enabled: true
+        enabled: checked
+      })
+    })
+  }
+
+  function toggleHighContrast(checked){
+    setHighContrast(checked);
+    chrome.tabs.query({active: "true"}, (tabs) => {
+      chrome.tabs.sendMessage(tabs[0], {
+        action: "toggleHighContrast",
+        enabled: checked
       })
     })
   }
@@ -47,7 +57,7 @@ function App() {
               <input
                 type="checkbox"
                 checked={highContrast}
-                onChange={(e) => setHighContrast(e.target.checked)}
+                onChange={(e) => toggleHighContrast(e.target.checked)}
               />
               <span className="slider round"></span>
             </label>

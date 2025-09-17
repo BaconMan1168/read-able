@@ -1,5 +1,5 @@
 const styleElement = document.createElement("style");
-styleElement.dataset.ext = "dyslexic"; // mark it for reference
+styleElement.dataset.ext = "dyslexic";
 
 styleElement.textContent = `
   @font-face {
@@ -27,7 +27,6 @@ styleElement.textContent = `
     font-style: italic;
   }
 
-  /* Safe universal override */
   body.font-dyslexic,
   body.font-dyslexic *,
   body.font-dyslexic h1,
@@ -48,17 +47,11 @@ styleElement.textContent = `
   }
 `;
 
-// Append it once to the head
 document.head.appendChild(styleElement);
 
-// Initially off
-let dyslexicEnabled = false;
-
-// Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "toggleDyslexicFont") {
-    dyslexicEnabled = message.enabled;
-    if (dyslexicEnabled) {
+    if (message.enabled) {
       document.body.classList.add("font-dyslexic");
     } else {
       document.body.classList.remove("font-dyslexic");
