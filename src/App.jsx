@@ -11,6 +11,16 @@ function App() {
 
   const [profile, setProfile] = useState('');
 
+  function toggleDyslexiaFont(checked){
+    setDyslexiaFont(checked);
+    chrome.tabs.query({active: "true"}, (tabs) => {
+      chrome.tabs.sendMessage(tabs[0], {
+        action: "toggleDyslexiaFont",
+        enabled: true
+      })
+    })
+  }
+
   return (
     <>
       <header>
@@ -25,7 +35,7 @@ function App() {
               <input
                 type="checkbox"
                 checked={dyslexiaFont}
-                onChange={(e) => setDyslexiaFont(e.target.checked)}
+                onChange={(e) => toggleDyslexiaFont(e.target.checked)}
               />
               <span className="slider round"></span>
             </label>
