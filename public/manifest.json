@@ -6,5 +6,10 @@
   "background": {
     "service_worker": "service-worker.js"
   },
-  "permissions": ["scripting", "activeTab"]
+  "permissions": ["scripting", "activeTab"],
+  "content_scripts": [
+    {
+      "js": ["content.js"]
+    }
+  ]
 }
