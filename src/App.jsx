@@ -6,14 +6,13 @@ function App() {
   const [highContrast, setHighContrast] = useState(false);
 
   const [fontSize, setFontSize] = useState(16);
-  const [letterSpacing, setLetterSpacing] = useState(1);
+  const [letterSpacing, setLetterSpacing] = useState(0);
   const [lineSpacing, setLineSpacing] = useState(1.5);
 
-  const [profile, setProfile] = useState('');
 
   function toggleDyslexiaFont(checked){
     setDyslexiaFont(checked);
-    chrome.tabs.query({active: "true"}, (tabs) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       chrome.tabs.sendMessage(tabs[0], {
         action: "toggleDyslexiaFont",
         enabled: checked
@@ -23,10 +22,40 @@ function App() {
 
   function toggleHighContrast(checked){
     setHighContrast(checked);
-    chrome.tabs.query({active: "true"}, (tabs) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       chrome.tabs.sendMessage(tabs[0], {
         action: "toggleHighContrast",
         enabled: checked
+      })
+    })
+  }
+
+  function adjustFontSize(value){
+    setFontSize(value);
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      chrome.tabs.sendMessage(tabs[0], {
+        action: "adjustFontSize",
+        fontSize: value
+      })
+    })
+  }
+
+  function adjustLetterSpacing(value){
+    setLetterSpacing(value);
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      chrome.tabs.sendMessage(tabs[0], {
+        action: "adjustLetterSpacing",
+        letterSpacing: value
+      })
+    })
+  }
+
+  function adjustLineSpacing(value){
+    setLineSpacing(value);
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      chrome.tabs.sendMessage(tabs[0], {
+        action: "adjustLineSpacing",
+        lineSpacing: value
       })
     })
   }
@@ -72,7 +101,7 @@ function App() {
               min="12"
               max="32"
               value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
+              onChange={(e) => adjustFontSize(Number(e.target.value))}
             />
           </div>
 
@@ -84,7 +113,7 @@ function App() {
               max="5"
               step="0.1"
               value={letterSpacing}
-              onChange={(e) => setLetterSpacing(Number(e.target.value))}
+              onChange={(e) => adjustLetterSpacing(Number(e.target.value))}
             />
           </div>
 
@@ -96,7 +125,7 @@ function App() {
               max="3"
               step="0.1"
               value={lineSpacing}
-              onChange={(e) => setLineSpacing(Number(e.target.value))}
+              onChange={(e) => adjustLineSpacing(Number(e.target.value))}
             />
           </div>
         </section>

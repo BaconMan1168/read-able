@@ -1,8 +1,7 @@
 const styleElement = document.createElement("style");
 styleElement.dataset.ext = "accessibility";
-styleElement.textContent = `
 
-  /* ------------------ OpenDyslexic Font ------------------ */
+styleElement.textContent = `
   @font-face {
     font-family: 'OpenDyslexic';
     src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Regular.woff2")}') format('woff2');
@@ -47,7 +46,6 @@ styleElement.textContent = `
     font-family: 'OpenDyslexic', sans-serif !important;
   }
 
-  /* ------------------ High Contrast Mode ------------------ */
   body.high-contrast,
   body.high-contrast * {
     background-color: black !important;
@@ -82,33 +80,47 @@ styleElement.textContent = `
     outline: 2px solid lightblue !important;
     outline-offset: 2px !important;
   }
+
+  body.accessibility-adjustable {
+    --a11y-font-size: 16px;
+    --a11y-letter-spacing: 0em;
+    --a11y-line-height: 1.5;
+  }
+
+  body.accessibility-adjustable,
+  body.accessibility-adjustable * {
+    font-size: var(--a11y-font-size) !important;
+    letter-spacing: var(--a11y-letter-spacing) !important;
+    line-height: var(--a11y-line-height) !important;
+  }
 `;
-
-
 document.head.appendChild(styleElement);
 
 
-let dyslexicEnabled = false;
-let contrastEnabled = false;
-
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "toggleDyslexicFont") {
-    dyslexicEnabled = message.enabled;
-    if (dyslexicEnabled) {
-      document.body.classList.add("font-dyslexic");
-    } 
-    else {
-      document.body.classList.remove("font-dyslexic");
+    if (message.action === "toggleDyslexicFont") {
+        document.body.classList.toggle("font-dyslexic", message.enabled);
     }
-  }
 
-  if (message.action === "toggleHighContrast") {
-    contrastEnabled = message.enabled;
-    if (contrastEnabled) {
-      document.body.classList.add("high-contrast");
-    } 
-    else {
-      document.body.classList.remove("high-contrast");
+    if (message.action === "toggleHighContrast") {
+        document.body.classList.toggle("high-contrast", message.enabled);
     }
-  }
+
+    
+    if (message.action === "adjustFontSize"){
+        document.body.classList.add("accessibility-adjustable");
+        document.body.style.setProperty("--a11y-font-size", `${message.fontSize}px`);
+    }
+
+    if (message.action === "adjustLetterSpacing"){
+        document.body.classList.add("accessibility-adjustable");
+        document.body.style.setProperty("--a11y-letter-spacing", `${message.letterSpacing}em`);
+    }
+
+    if (message.action === "adjustLineSpacing"){
+        document.body.classList.add("accessibility-adjustable");
+        document.body.style.setProperty("--a11y-line-height", `${message.lineSpacing}`);
+    }
+
+  
 });
