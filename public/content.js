@@ -54,17 +54,17 @@ styleElement.textContent = `
 
   body.high-contrast a,
   body.high-contrast a * {
-    color: yellow !important;
+    color: #fffe00 !important;
   }
 
   body.high-contrast :disabled,
   body.high-contrast [disabled],
   body.high-contrast .disabled {
-    color: green !important;
+    color: #3ef240 !important;
   }
 
   body.high-contrast ::selection {
-    background-color: lightblue !important;
+    background-color: #19ebfe !important;
     color: black !important;
   }
 
@@ -73,11 +73,11 @@ styleElement.textContent = `
   body.high-contrast input[type="submit"] {
     background-color: black !important;
     color: white !important;
-    border: 1px solid lightblue !important;
+    border: 1px solid #19ebfe !important;
   }
 
   body.high-contrast *:focus {
-    outline: 2px solid lightblue !important;
+    outline: 2px solid #19ebfe !important;
     outline-offset: 2px !important;
   }
 
