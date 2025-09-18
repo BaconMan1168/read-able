@@ -100,17 +100,6 @@ function App() {
             />
           </div>
         </section>
-
-        <section>
-          <label htmlFor="profile-select">Profile:</label>
-          <select
-            id="profile-select"
-            value={profile}
-            onChange={(e) => setProfile(e.target.value)}
-          >
-            <option value="">Choose a profile</option>
-          </select>
-        </section>
       </main>
     </>
   )
