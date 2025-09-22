@@ -2,16 +2,17 @@ import { useState } from 'react'
 import './App.css'
 
 function App() {
-  const [dyslexiaFont, setDyslexiaFont] = useState(false);
-  const [highContrast, setHighContrast] = useState(false);
+  const [dyslexiaFont, setDyslexiaFont] = useState(chrome.storage.sync.get({isDyslexia}) || false);
+  const [highContrast, setHighContrast] = useState(chrome.storage.sync.get({isContrast}) || false);
 
-  const [fontSize, setFontSize] = useState(16);
-  const [letterSpacing, setLetterSpacing] = useState(0);
-  const [lineSpacing, setLineSpacing] = useState(1.5);
+  const [fontSize, setFontSize] = useState(chrome.storage.sync.get({fontSize}) || 16);
+  const [letterSpacing, setLetterSpacing] = useState(chrome.storage.sync.get({letterSpacing}) || 0);
+  const [lineSpacing, setLineSpacing] = useState(chrome.storage.sync.get({lineSpacing}),  1.5);
 
 
   function toggleDyslexiaFont(checked){
     setDyslexiaFont(checked);
+    chrome.storage.sync.set({isDyslexia: checked});
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       chrome.tabs.sendMessage(tabs[0], {
         action: "toggleDyslexiaFont",
@@ -22,6 +23,7 @@ function App() {
 
   function toggleHighContrast(checked){
     setHighContrast(checked);
+    chrome.storage.sync.set({isContrast: checked});
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       chrome.tabs.sendMessage(tabs[0], {
         action: "toggleHighContrast",
@@ -32,6 +34,7 @@ function App() {
 
   function adjustFontSize(value){
     setFontSize(value);
+    chrome.storage.sync.set({fontSize: value});
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       chrome.tabs.sendMessage(tabs[0], {
         action: "adjustFontSize",
@@ -42,6 +45,7 @@ function App() {
 
   function adjustLetterSpacing(value){
     setLetterSpacing(value);
+    chrome.storage.sync.set({letterSpacing: value});
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       chrome.tabs.sendMessage(tabs[0], {
         action: "adjustLetterSpacing",
@@ -52,12 +56,34 @@ function App() {
 
   function adjustLineSpacing(value){
     setLineSpacing(value);
+    chrome.storage.sync.set({lineSpacing: value});
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       chrome.tabs.sendMessage(tabs[0], {
         action: "adjustLineSpacing",
         lineSpacing: value
       })
     })
+  }
+
+  function requestPermissionForCurrentSite() {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const url = new URL(tabs[0].url);
+      const origin = url.origin + "/*";
+
+      chrome.permissions.request({ origins: [origin] }, (granted) => {
+        if (granted) {
+          console.log("Permission granted for " + origin);
+
+
+          chrome.scripting.executeScript({
+            target: { tabId: tabs[0].id },
+            files: ["content.js"]
+          });
+        } else {
+          console.log("Permission denied for " + origin);
+        }
+      });
+    });
   }
 
   return (
