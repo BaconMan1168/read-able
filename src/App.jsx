@@ -1,71 +1,76 @@
-import { useState } from 'react'
-import './App.css'
+import { useState, useEffect } from 'react';
+import './App.css';
 
 function App() {
-  const [dyslexiaFont, setDyslexiaFont] = useState(chrome.storage.sync.get({isDyslexia}) || false);
-  const [highContrast, setHighContrast] = useState(chrome.storage.sync.get({isContrast}) || false);
+  // 1. Initialize state with defaults
+  const [dyslexiaFont, setDyslexiaFont] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
+  const [fontSize, setFontSize] = useState(16);
+  const [letterSpacing, setLetterSpacing] = useState(0);
+  const [lineSpacing, setLineSpacing] = useState(1.5);
 
-  const [fontSize, setFontSize] = useState(chrome.storage.sync.get({fontSize}) || 16);
-  const [letterSpacing, setLetterSpacing] = useState(chrome.storage.sync.get({letterSpacing}) || 0);
-  const [lineSpacing, setLineSpacing] = useState(chrome.storage.sync.get({lineSpacing}),  1.5);
+  // 2. Load stored settings on mount
+  useEffect(() => {
+    chrome.storage.sync.get(
+      {
+        isDyslexia: false,
+        isContrast: false,
+        fontSize: 16,
+        letterSpacing: 0,
+        lineSpacing: 1.5
+      },
+      (result) => {
+        setDyslexiaFont(result.isDyslexia);
+        setHighContrast(result.isContrast);
+        setFontSize(result.fontSize);
+        setLetterSpacing(result.letterSpacing);
+        setLineSpacing(result.lineSpacing);
+      }
+    );
+  }, []);
 
+  // 3. Utility to send a message to the active tab
+  const sendMessageToTab = (message) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, message);
+      }
+    });
+  };
 
-  function toggleDyslexiaFont(checked){
+  // 4. Toggle and adjust functions
+  const toggleDyslexiaFont = (checked) => {
     setDyslexiaFont(checked);
-    chrome.storage.sync.set({isDyslexia: checked});
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      chrome.tabs.sendMessage(tabs[0], {
-        action: "toggleDyslexiaFont",
-        enabled: checked
-      })
-    })
-  }
+    chrome.storage.sync.set({ isDyslexia: checked });
+    sendMessageToTab({ action: "toggleDyslexicFont", enabled: checked });
+  };
 
-  function toggleHighContrast(checked){
+  const toggleHighContrast = (checked) => {
     setHighContrast(checked);
-    chrome.storage.sync.set({isContrast: checked});
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      chrome.tabs.sendMessage(tabs[0], {
-        action: "toggleHighContrast",
-        enabled: checked
-      })
-    })
-  }
+    chrome.storage.sync.set({ isContrast: checked });
+    sendMessageToTab({ action: "toggleHighContrast", enabled: checked });
+  };
 
-  function adjustFontSize(value){
+  const adjustFontSize = (value) => {
     setFontSize(value);
-    chrome.storage.sync.set({fontSize: value});
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      chrome.tabs.sendMessage(tabs[0], {
-        action: "adjustFontSize",
-        fontSize: value
-      })
-    })
-  }
+    chrome.storage.sync.set({ fontSize: value });
+    sendMessageToTab({ action: "adjustFontSize", fontSize: value });
+  };
 
-  function adjustLetterSpacing(value){
+  const adjustLetterSpacing = (value) => {
     setLetterSpacing(value);
-    chrome.storage.sync.set({letterSpacing: value});
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      chrome.tabs.sendMessage(tabs[0], {
-        action: "adjustLetterSpacing",
-        letterSpacing: value
-      })
-    })
-  }
+    chrome.storage.sync.set({ letterSpacing: value });
+    sendMessageToTab({ action: "adjustLetterSpacing", letterSpacing: value });
+  };
 
-  function adjustLineSpacing(value){
+  const adjustLineSpacing = (value) => {
     setLineSpacing(value);
-    chrome.storage.sync.set({lineSpacing: value});
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      chrome.tabs.sendMessage(tabs[0], {
-        action: "adjustLineSpacing",
-        lineSpacing: value
-      })
-    })
-  }
+    chrome.storage.sync.set({ lineSpacing: value });
+    sendMessageToTab({ action: "adjustLineSpacing", lineSpacing: value });
+  };
 
-  function requestPermissionForCurrentSite() {
+  // 5. Request optional host permissions and inject content.js
+  const requestPermissionForCurrentSite = () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const url = new URL(tabs[0].url);
       const origin = url.origin + "/*";
@@ -74,17 +79,24 @@ function App() {
         if (granted) {
           console.log("Permission granted for " + origin);
 
-
+          // Inject content.js
           chrome.scripting.executeScript({
             target: { tabId: tabs[0].id },
             files: ["content.js"]
+          }, () => {
+            // Apply current settings immediately
+            sendMessageToTab({
+              action: "applyCurrentSettings",
+              settings: { dyslexiaFont, highContrast, fontSize, letterSpacing, lineSpacing }
+            });
           });
+
         } else {
           console.log("Permission denied for " + origin);
         }
       });
     });
-  }
+  };
 
   return (
     <>
@@ -93,7 +105,10 @@ function App() {
         <h2>Accessible Reading Tools</h2>
       </header>
       <main>
-        <button onClick={requestPermissionForCurrentSite}>Enable ReadAble on this Site</button>
+        <button onClick={requestPermissionForCurrentSite}>
+          Enable ReadAble on this Site
+        </button>
+
         <section>
           <div>
             <label className="switch">
@@ -158,7 +173,7 @@ function App() {
         </section>
       </main>
     </>
-  )
+  );
 }
 
 export default App;

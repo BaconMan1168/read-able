@@ -3,10 +3,13 @@
   "name": "ReadAble",
   "description": "Makes reading news and educational websites more accessible to people with disabilities",
   "version": "1.0",
-  "background": {
-    "service_worker": "service-worker.js"
-  },
   "permissions": ["scripting", "activeTab", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "index.html"
+  },
   "host_permissions": [
     "*://*.edu/*",
     "*://*.gov/*",
