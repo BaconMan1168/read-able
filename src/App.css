@@ -1,7 +1,28 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+header {
+  padding-bottom: 8px;
+}
+
+.switch-section {
+  padding: 10px 0px 10px 0px;
+  display: flex;
+  flex-direction: column;
+  gap:12px;
+}
+
 .switch-group {
   display: flex;
   gap:8px;
   align-items: center;
+}
+
+.switch-group span {
+  max-width:100px;
 }
 
 /* The switch - the box around the slider */

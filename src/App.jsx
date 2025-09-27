@@ -109,7 +109,7 @@ function App() {
           Enable ReadAble on this Site
         </button>
 
-        <section>
+        <section className="switch-section">
           <div className="switch-group">
             <span>Toggle Dyslexia Font</span>
             <label className="switch">
