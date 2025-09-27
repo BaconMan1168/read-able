@@ -28,7 +28,6 @@ styleElement.textContent = `
   }
 
   :root {
-    --a11y-font-scale: 1;
     --a11y-letter-spacing: 0em;
     --a11y-line-height: 1.5;
   }
@@ -110,25 +109,49 @@ styleElement.textContent = `
     outline: 2px solid #19ebfe !important;
     outline-offset: 2px !important;
   }
-
-  /* Accessibility scaling */
-  body.accessibility-adjustable {
-    font-size: calc(1rem * var(--a11y-font-scale)) !important;
-    letter-spacing: var(--a11y-letter-spacing);
-    line-height: var(--a11y-line-height);
-  }
-
-  /* Apply scaling to all descendants */
-  body.accessibility-adjustable * {
-    font-size: inherit !important; /* inherit from parent to scale proportionally */
-    letter-spacing: inherit !important;
-    line-height: inherit !important;
-  }
 `;
 
 document.head.appendChild(styleElement);
 
-//Load saved settings onto webpage immediately
+const originalFontSizes = new Map();
+let currentScale = 1;
+
+function cacheOriginalFontSizes(root = document.body) {
+  const elements = root.querySelectorAll("*");
+  elements.forEach(el => {
+    if (!originalFontSizes.has(el)) {
+      const style = window.getComputedStyle(el);
+      const size = parseFloat(style.fontSize);
+      if (!isNaN(size)) {
+        originalFontSizes.set(el, size);
+      }
+    }
+  });
+}
+
+function applyScale(scale) {
+  currentScale = scale;
+  originalFontSizes.forEach((baseSize, el) => {
+    el.style.fontSize = (baseSize * scale) + "px";
+  });
+}
+
+cacheOriginalFontSizes();
+
+
+const observer = new MutationObserver(mutations => {
+  mutations.forEach(m => {
+    m.addedNodes.forEach(node => {
+      if (node.nodeType === 1) {
+        cacheOriginalFontSizes(node);
+        applyScale(currentScale); 
+      }
+    });
+  });
+});
+observer.observe(document.body, { childList: true, subtree: true });
+
+
 chrome.storage.sync.get(
   {
     isDyslexia: false,
@@ -145,12 +168,12 @@ chrome.storage.sync.get(
       document.body.classList.toggle("high-contrast", result.isContrast);
     }
 
-    document.body.classList.add("accessibility-adjustable");
-    document.body.style.setProperty("--a11y-font-scale", result.fontSize);
+    applyScale(result.fontSize);
     document.body.style.setProperty("--a11y-letter-spacing", `${result.letterSpacing}em`);
     document.body.style.setProperty("--a11y-line-height", `${result.lineSpacing}`);
   }
 );
+
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.action === "toggleDyslexicFont") {
@@ -162,17 +185,14 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 
   if (message.action === "adjustFontSize") {
-    document.body.classList.add("accessibility-adjustable");
-    document.body.style.setProperty("--a11y-font-scale", message.fontSize);
+    applyScale(message.fontSize);
   }
 
   if (message.action === "adjustLetterSpacing") {
-    document.body.classList.add("accessibility-adjustable");
     document.body.style.setProperty("--a11y-letter-spacing", `${message.letterSpacing}em`);
   }
 
   if (message.action === "adjustLineSpacing") {
-    document.body.classList.add("accessibility-adjustable");
     document.body.style.setProperty("--a11y-line-height", `${message.lineSpacing}`);
   }
 });
