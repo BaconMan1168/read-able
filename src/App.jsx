@@ -99,7 +99,7 @@ function App() {
         <h2>Accessible Reading Tools</h2>
       </header>
       <main>
-        <button onClick={requestPermissionForCurrentSite}>
+        <button className="request-button" onClick={requestPermissionForCurrentSite}>
           Enable ReadAble on this Site
         </button>
 

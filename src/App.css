@@ -8,6 +8,15 @@ header {
   padding-bottom: 8px;
 }
 
+.request-button {
+  appearance: none;
+  padding:8px;
+  border-radius:25px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in;
+}
+
+
 .switch-section {
   padding: 10px 0px 10px 0px;
   display: flex;
