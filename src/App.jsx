@@ -4,7 +4,7 @@ import './App.css';
 function App() {
   const [dyslexiaFont, setDyslexiaFont] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
-  const [fontSize, setFontSize] = useState(16);
+  const [fontSize, setFontSize] = useState(1); // now used as scale
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [lineSpacing, setLineSpacing] = useState(1.5);
 
@@ -13,7 +13,7 @@ function App() {
       {
         isDyslexia: false,
         isContrast: false,
-        fontSize: 16,
+        fontSize: 1,
         letterSpacing: 0,
         lineSpacing: 1.5
       },
@@ -131,11 +131,12 @@ function App() {
 
         <section className="slide-section">
           <div className="slide-container">
-            <label>Font Size: {fontSize}px</label>
+            <label>Font Scale: {fontSize}×</label>
             <input
               type="range"
-              min="12"
-              max="32"
+              min="0.5"
+              max="2"
+              step="0.05"
               value={fontSize}
               onChange={(e) => adjustFontSize(Number(e.target.value))}
               className="range-slider"
@@ -148,7 +149,7 @@ function App() {
               type="range"
               min="0"
               max="5"
-              step="0.1"
+              step="0.05"
               value={letterSpacing}
               onChange={(e) => adjustLetterSpacing(Number(e.target.value))}
               className="range-slider"
@@ -161,7 +162,7 @@ function App() {
               type="range"
               min="1"
               max="3"
-              step="0.1"
+              step="0.05"
               value={lineSpacing}
               onChange={(e) => adjustLineSpacing(Number(e.target.value))}
               className="range-slider"

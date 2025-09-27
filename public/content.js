@@ -27,23 +27,24 @@ styleElement.textContent = `
     font-style: italic;
   }
 
+  :root {
+    --a11y-font-scale: 1;
+    --a11y-letter-spacing: 0em;
+    --a11y-line-height: 1.5;
+  }
+
+  /* Dyslexic font */
   body.font-dyslexic,
-  body.font-dyslexic *,
-  body.font-dyslexic h1,
-  body.font-dyslexic h2,
-  body.font-dyslexic h3,
-  body.font-dyslexic h4,
-  body.font-dyslexic h5,
-  body.font-dyslexic h6,
-  body.font-dyslexic p,
-  body.font-dyslexic span,
-  body.font-dyslexic div,
-  body.font-dyslexic a,
-  body.font-dyslexic li,
-  body.font-dyslexic button,
-  body.font-dyslexic input,
-  body.font-dyslexic textarea {
+  body.font-dyslexic * {
     font-family: 'OpenDyslexic', sans-serif !important;
+  }
+
+  /* High contrast */
+  body.high-contrast img,
+  body.high-contrast svg,
+  body.high-contrast canvas {
+    filter: none !important; 
+    background: none !important;
   }
 
   body.high-contrast,
@@ -81,46 +82,44 @@ styleElement.textContent = `
     outline-offset: 2px !important;
   }
 
+  /* Accessibility scaling */
   body.accessibility-adjustable {
-    --a11y-font-size: 16px;
-    --a11y-letter-spacing: 0em;
-    --a11y-line-height: 1.5;
+    font-size: calc(1rem * var(--a11y-font-scale)) !important;
+    letter-spacing: var(--a11y-letter-spacing);
+    line-height: var(--a11y-line-height);
   }
 
-  body.accessibility-adjustable,
+  /* Apply scaling to all descendants */
   body.accessibility-adjustable * {
-    font-size: var(--a11y-font-size) !important;
-    letter-spacing: var(--a11y-letter-spacing) !important;
-    line-height: var(--a11y-line-height) !important;
+    font-size: inherit !important; /* inherit from parent to scale proportionally */
+    letter-spacing: inherit !important;
+    line-height: inherit !important;
   }
 `;
+
 document.head.appendChild(styleElement);
 
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.action === "toggleDyslexicFont") {
+    document.body.classList.toggle("font-dyslexic", message.enabled);
+  }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "toggleDyslexicFont") {
-        document.body.classList.toggle("font-dyslexic", message.enabled);
-    }
+  if (message.action === "toggleHighContrast") {
+    document.body.classList.toggle("high-contrast", message.enabled);
+  }
 
-    if (message.action === "toggleHighContrast") {
-        document.body.classList.toggle("high-contrast", message.enabled);
-    }
+  if (message.action === "adjustFontSize") {
+    document.body.classList.add("accessibility-adjustable");
+    document.body.style.setProperty("--a11y-font-scale", message.fontSize);
+  }
 
-    
-    if (message.action === "adjustFontSize"){
-        document.body.classList.add("accessibility-adjustable");
-        document.body.style.setProperty("--a11y-font-size", `${message.fontSize}px`);
-    }
+  if (message.action === "adjustLetterSpacing") {
+    document.body.classList.add("accessibility-adjustable");
+    document.body.style.setProperty("--a11y-letter-spacing", `${message.letterSpacing}em`);
+  }
 
-    if (message.action === "adjustLetterSpacing"){
-        document.body.classList.add("accessibility-adjustable");
-        document.body.style.setProperty("--a11y-letter-spacing", `${message.letterSpacing}em`);
-    }
-
-    if (message.action === "adjustLineSpacing"){
-        document.body.classList.add("accessibility-adjustable");
-        document.body.style.setProperty("--a11y-line-height", `${message.lineSpacing}`);
-    }
-
-  
+  if (message.action === "adjustLineSpacing") {
+    document.body.classList.add("accessibility-adjustable");
+    document.body.style.setProperty("--a11y-line-height", `${message.lineSpacing}`);
+  }
 });
