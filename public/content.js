@@ -48,8 +48,15 @@ styleElement.textContent = `
   }
 
   body.high-contrast,
-  body.high-contrast div,
-  body.high-contrast nav {
+  body.high-contrast html,
+  body.high-contrast main,
+  body.high-contrast header,
+  body.high-contrast footer,
+  body.high-contrast section,
+  body.high-contrast article,
+  body.high-contrast nav,
+  body.high-contrast aside,
+  body.high-contrast div {
     background-color: black !important;
   }
 
