@@ -48,8 +48,25 @@ styleElement.textContent = `
   }
 
   body.high-contrast,
-  body.high-contrast * {
+  body.high-contrast div,
+  body.high-contrast nav {
     background-color: black !important;
+  }
+
+  body.high-contrast p,
+  body.high-contrast span,
+  body.high-contrast h1,
+  body.high-contrast h2,
+  body.high-contrast h3,
+  body.high-contrast h4,
+  body.high-contrast h5,
+  body.high-contrast h6,
+  body.high-contrast li,
+  body.high-contrast a,
+  body.high-contrast button,
+  body.high-contrast input,
+  body.high-contrast textarea,
+  body.high-contrast label {
     color: white !important;
   }
 
