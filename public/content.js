@@ -45,6 +45,8 @@ styleElement.textContent = `
   body.high-contrast canvas {
     filter: none !important; 
     background: none !important;
+    fill: white;
+    stroke: white;
   }
 
   body.high-contrast,
@@ -56,7 +58,8 @@ styleElement.textContent = `
   body.high-contrast article,
   body.high-contrast nav,
   body.high-contrast aside,
-  body.high-contrast div {
+  body.high-contrast div,
+  body.high-contrast button {
     background-color: black !important;
   }
 
@@ -80,6 +83,8 @@ styleElement.textContent = `
   body.high-contrast a,
   body.high-contrast a * {
     color: #fffe00 !important;
+    background-color: black !important;
+    text-decoration: underline;
   }
 
   body.high-contrast :disabled,
