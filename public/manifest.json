@@ -10,39 +10,9 @@
   "action": {
     "default_popup": "index.html"
   },
-  "host_permissions": [
-    "*://*.edu/*",
-    "*://*.gov/*",
-    "*://*.bbc.com/*",
-    "*://*.nytimes.com/*",
-    "*://*.cnn.com/*",
-    "*://*.reuters.com/*",
-    "*://*.washingtonpost.com/*",
-    "*://*.theguardian.com/*",
-    "*://*.wsj.com/*",
-    "*://*.nbcnews.com/*",
-    "*://*.cbsnews.com/*",
-    "*://*.abcnews.go.com/*"
-  ],
-  "optional_host_permissions": [
-    "*://*/*"
-  ],
   "content_scripts": [
     {
-      "matches": [
-        "*://*.edu/*",
-        "*://*.gov/*",
-        "*://*.bbc.com/*",
-        "*://*.nytimes.com/*",
-        "*://*.cnn.com/*",
-        "*://*.reuters.com/*",
-        "*://*.washingtonpost.com/*",
-        "*://*.theguardian.com/*",
-        "*://*.wsj.com/*",
-        "*://*.nbcnews.com/*",
-        "*://*.cbsnews.com/*",
-        "*://*.abcnews.go.com/*"
-      ],
+      "matches": ["<all_urls>"],
       "js": ["content.js"]
     }
   ]

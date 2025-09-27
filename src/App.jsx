@@ -65,33 +65,6 @@ function App() {
     sendMessageToTab({ action: "adjustLineSpacing", lineSpacing: value });
   };
 
-  const requestPermissionForCurrentSite = () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const url = new URL(tabs[0].url);
-      const origin = url.origin + "/*";
-
-      chrome.permissions.request({ origins: [origin] }, (granted) => {
-        if (granted) {
-          console.log("Permission granted for " + origin);
-
-          // Inject content.js
-          chrome.scripting.executeScript({
-            target: { tabId: tabs[0].id },
-            files: ["content.js"]
-          }, () => {
-            sendMessageToTab({
-              action: "applyCurrentSettings",
-              settings: { dyslexiaFont, highContrast, fontSize, letterSpacing, lineSpacing }
-            });
-          });
-
-        } else {
-          console.log("Permission denied for " + origin);
-        }
-      });
-    });
-  };
-
   return (
     <>
       <header>
@@ -99,10 +72,6 @@ function App() {
         <h2>Accessible Reading Tools</h2>
       </header>
       <main>
-        <button className="request-button" onClick={requestPermissionForCurrentSite}>
-          Enable ReadAble on this Site
-        </button>
-
         <section className="switch-section">
           <div className="switch-group">
             <span>Toggle Dyslexia Font</span>
