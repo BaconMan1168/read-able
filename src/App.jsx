@@ -110,9 +110,9 @@ function App() {
         </button>
 
         <section>
-          <div>
+          <div className="switch-group">
+            <span>Toggle Dyslexia Font</span>
             <label className="switch">
-              Dyslexia Font
               <input
                 type="checkbox"
                 checked={dyslexiaFont}
@@ -122,9 +122,9 @@ function App() {
             </label>
           </div>
 
-          <div>
+          <div className="switch-group">
+            <span>Toggle High Contrast</span>
             <label className="switch">
-              High Contrast
               <input
                 type="checkbox"
                 checked={highContrast}
