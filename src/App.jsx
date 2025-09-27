@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react';
 import './App.css';
 
 function App() {
-  // 1. Initialize state with defaults
   const [dyslexiaFont, setDyslexiaFont] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
   const [fontSize, setFontSize] = useState(16);
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [lineSpacing, setLineSpacing] = useState(1.5);
 
-  // 2. Load stored settings on mount
   useEffect(() => {
     chrome.storage.sync.get(
       {
@@ -29,7 +27,6 @@ function App() {
     );
   }, []);
 
-  // 3. Utility to send a message to the active tab
   const sendMessageToTab = (message) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) {
@@ -38,7 +35,6 @@ function App() {
     });
   };
 
-  // 4. Toggle and adjust functions
   const toggleDyslexiaFont = (checked) => {
     setDyslexiaFont(checked);
     chrome.storage.sync.set({ isDyslexia: checked });
@@ -69,7 +65,6 @@ function App() {
     sendMessageToTab({ action: "adjustLineSpacing", lineSpacing: value });
   };
 
-  // 5. Request optional host permissions and inject content.js
   const requestPermissionForCurrentSite = () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const url = new URL(tabs[0].url);
@@ -84,7 +79,6 @@ function App() {
             target: { tabId: tabs[0].id },
             files: ["content.js"]
           }, () => {
-            // Apply current settings immediately
             sendMessageToTab({
               action: "applyCurrentSettings",
               settings: { dyslexiaFont, highContrast, fontSize, letterSpacing, lineSpacing }
@@ -135,8 +129,8 @@ function App() {
           </div>
         </section>
 
-        <section>
-          <div className="sliderContainer">
+        <section className="slide-section">
+          <div className="slide-container">
             <label>Font Size: {fontSize}px</label>
             <input
               type="range"
@@ -144,10 +138,11 @@ function App() {
               max="32"
               value={fontSize}
               onChange={(e) => adjustFontSize(Number(e.target.value))}
+              className="range-slider"
             />
           </div>
 
-          <div className="sliderContainer">
+          <div className="slide-container">
             <label>Letter Spacing: {letterSpacing}em</label>
             <input
               type="range"
@@ -156,10 +151,11 @@ function App() {
               step="0.1"
               value={letterSpacing}
               onChange={(e) => adjustLetterSpacing(Number(e.target.value))}
+              className="range-slider"
             />
           </div>
 
-          <div className="sliderContainer">
+          <div className="slide-container">
             <label>Line Spacing: {lineSpacing}</label>
             <input
               type="range"
@@ -168,6 +164,7 @@ function App() {
               step="0.1"
               value={lineSpacing}
               onChange={(e) => adjustLineSpacing(Number(e.target.value))}
+              className="range-slider"
             />
           </div>
         </section>
