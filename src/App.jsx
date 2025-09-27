@@ -4,7 +4,7 @@ import './App.css';
 function App() {
   const [dyslexiaFont, setDyslexiaFont] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
-  const [fontSize, setFontSize] = useState(1); // now used as scale
+  const [fontSize, setFontSize] = useState(1); 
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [lineSpacing, setLineSpacing] = useState(1.5);
 

@@ -99,6 +99,30 @@ styleElement.textContent = `
 
 document.head.appendChild(styleElement);
 
+//Load saved settings onto webpage immediately
+chrome.storage.sync.get(
+  {
+    isDyslexia: false,
+    isContrast: false,
+    fontSize: 1,
+    letterSpacing: 0,
+    lineSpacing: 1.5
+  },
+  (result) => {
+    if (result.isDyslexia){
+      document.body.classList.toggle("font-dyslexic", result.isDyslexia);
+    }
+    if (result.isContrast){
+      document.body.classList.toggle("high-contrast", result.isContrast);
+    }
+
+    document.body.classList.add("accessibility-adjustable");
+    document.body.style.setProperty("--a11y-font-scale", result.fontSize);
+    document.body.style.setProperty("--a11y-letter-spacing", `${result.letterSpacing}em`);
+    document.body.style.setProperty("--a11y-line-height", `${result.lineSpacing}`);
+  }
+);
+
 chrome.runtime.onMessage.addListener((message) => {
   if (message.action === "toggleDyslexicFont") {
     document.body.classList.toggle("font-dyslexic", message.enabled);
