@@ -47,24 +47,6 @@ function App() {
     sendMessageToTab({ action: "toggleHighContrast", enabled: checked });
   };
 
-  const adjustFontSize = (value) => {
-    setFontSize(value);
-    chrome.storage.sync.set({ fontSize: value });
-    sendMessageToTab({ action: "adjustFontSize", fontSize: value });
-  };
-
-  const adjustLetterSpacing = (value) => {
-    setLetterSpacing(value);
-    chrome.storage.sync.set({ letterSpacing: value });
-    sendMessageToTab({ action: "adjustLetterSpacing", letterSpacing: value });
-  };
-
-  const adjustLineSpacing = (value) => {
-    setLineSpacing(value);
-    chrome.storage.sync.set({ lineSpacing: value });
-    sendMessageToTab({ action: "adjustLineSpacing", lineSpacing: value });
-  };
-
   return (
     <>
       <header>
@@ -100,40 +82,67 @@ function App() {
 
         <section className="slide-section">
           <div className="slide-container">
-            <label>Font Scale: {fontSize}×</label>
+            <label htmlFor="fontScale">Font Scale: {fontSize}×</label>
             <input
+              id="fontScale"
               type="range"
               min="0.5"
               max="2"
               step="0.05"
               value={fontSize}
-              onChange={(e) => adjustFontSize(Number(e.target.value))}
+              onChange={(e) => {
+                const value = Number(e.target.value);
+                setFontSize(value);
+                sendMessageToTab({ action: "adjustFontSize", fontSize: value });
+              }}
+              onMouseUp={(e) => {
+                const value = Number(e.target.value);
+                chrome.storage.sync.set({ fontSize: value });
+              }}
               className="range-slider"
             />
           </div>
 
           <div className="slide-container">
-            <label>Letter Spacing: {letterSpacing}em</label>
+            <label htmlFor="letterSpacing">Letter Spacing: {letterSpacing}em</label>
             <input
+              id="letterSpacing"
               type="range"
               min="0"
               max="0.5"
               step="0.01"
               value={letterSpacing}
-              onChange={(e) => adjustLetterSpacing(Number(e.target.value))}
+              onChange={(e) => {
+                const value = Number(e.target.value);
+                setLetterSpacing(value);
+                sendMessageToTab({ action: "adjustLetterSpacing", letterSpacing: value });
+              }}
+              onMouseUp={(e) => {
+                const value = Number(e.target.value);
+                chrome.storage.sync.set({ letterSpacing: value });
+              }}
               className="range-slider"
             />
           </div>
 
           <div className="slide-container">
-            <label>Line Spacing: {lineSpacing}</label>
+            <label htmlFor="lineSpacing">Line Spacing: {lineSpacing}</label>
             <input
+              id="lineSpacing"
               type="range"
               min="1"
               max="3"
               step="0.05"
               value={lineSpacing}
-              onChange={(e) => adjustLineSpacing(Number(e.target.value))}
+              onChange={(e) => {
+                const value = Number(e.target.value);
+                setLineSpacing(value);
+                sendMessageToTab({ action: "adjustLineSpacing", lineSpacing: value });
+              }}
+              onMouseUp={(e) => {
+                const value = Number(e.target.value);
+                chrome.storage.sync.set({ lineSpacing: value });
+              }}
               className="range-slider"
             />
           </div>
