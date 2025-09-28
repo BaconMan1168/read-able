@@ -54,35 +54,39 @@ function App() {
         <h2>Accessible Reading Tools</h2>
       </header>
       <main>
-        <section className="switch-section">
+        <section className="switch-section" aria-label="Accessibility toggles">
           <div className="switch-group">
-            <span>Toggle Dyslexia Font</span>
+            <span id="dyslexiaFontLabel">Toggle Dyslexia Font</span>
             <label htmlFor="dyslexiaFont" className="switch">
               <input
                 id="dyslexiaFont"
                 type="checkbox"
                 checked={dyslexiaFont}
                 onChange={(e) => toggleDyslexiaFont(e.target.checked)}
+                aria-checked={dyslexiaFont}
+                aria-labelledby="dyslexiaFontLabel"
               />
-              <span className="slider round"></span>
+              <span className="slider round" role="presentation"></span>
             </label>
           </div>
 
           <div className="switch-group">
-            <span>Toggle High Contrast</span>
+            <span id="highContrastLabel">Toggle High Contrast</span>
             <label htmlFor='highContrast' className="switch">
               <input
                 id='highContrast'
                 type="checkbox"
                 checked={highContrast}
                 onChange={(e) => toggleHighContrast(e.target.checked)}
+                aria-checked={highContrast}
+                aria-labelledby="highContrastLabel"
               />
-              <span className="slider round"></span>
+              <span className="slider round" role="presentation"></span>
             </label>
           </div>
         </section>
 
-        <section className="slide-section">
+        <section className="slide-section" aria-label="Adjustable text settings">
           <div className="slide-container">
             <label htmlFor="fontScale">Font Scale: {fontSize}×</label>
             <input
@@ -102,6 +106,11 @@ function App() {
                 chrome.storage.sync.set({ fontSize: value });
               }}
               className="range-slider"
+              aria-valuemin={0.5}
+              aria-valuemax={2}
+              aria-valuenow={fontSize}
+              aria-valuetext={`Font size ${fontSize} times normal`}
+              aria-label="Adjust font size"
             />
           </div>
 
@@ -124,6 +133,11 @@ function App() {
                 chrome.storage.sync.set({ letterSpacing: value });
               }}
               className="range-slider"
+              aria-valuemin={0}
+              aria-valuemax={0.5}
+              aria-valuenow={letterSpacing}
+              aria-valuetext={`Letter spacing ${letterSpacing} em`}
+              aria-label="Adjust letter spacing"
             />
           </div>
 
@@ -146,6 +160,11 @@ function App() {
                 chrome.storage.sync.set({ lineSpacing: value });
               }}
               className="range-slider"
+              aria-valuemin={1}
+              aria-valuemax={3}
+              aria-valuenow={lineSpacing}
+              aria-valuetext={`Line spacing ${lineSpacing}`}
+              aria-label="Adjust line spacing"
             />
           </div>
         </section>
