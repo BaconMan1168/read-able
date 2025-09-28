@@ -57,8 +57,9 @@ function App() {
         <section className="switch-section">
           <div className="switch-group">
             <span>Toggle Dyslexia Font</span>
-            <label className="switch">
+            <label htmlFor="dyslexiaFont" className="switch">
               <input
+                id="dyslexiaFont"
                 type="checkbox"
                 checked={dyslexiaFont}
                 onChange={(e) => toggleDyslexiaFont(e.target.checked)}
@@ -69,8 +70,9 @@ function App() {
 
           <div className="switch-group">
             <span>Toggle High Contrast</span>
-            <label className="switch">
+            <label htmlFor='highContrast' className="switch">
               <input
+                id='highContrast'
                 type="checkbox"
                 checked={highContrast}
                 onChange={(e) => toggleHighContrast(e.target.checked)}
@@ -95,7 +97,7 @@ function App() {
                 setFontSize(value);
                 sendMessageToTab({ action: "adjustFontSize", fontSize: value });
               }}
-              onMouseUp={(e) => {
+              onBlur={(e) => {
                 const value = Number(e.target.value);
                 chrome.storage.sync.set({ fontSize: value });
               }}
@@ -117,7 +119,7 @@ function App() {
                 setLetterSpacing(value);
                 sendMessageToTab({ action: "adjustLetterSpacing", letterSpacing: value });
               }}
-              onMouseUp={(e) => {
+              onBlur={(e) => {
                 const value = Number(e.target.value);
                 chrome.storage.sync.set({ letterSpacing: value });
               }}
@@ -139,7 +141,7 @@ function App() {
                 setLineSpacing(value);
                 sendMessageToTab({ action: "adjustLineSpacing", lineSpacing: value });
               }}
-              onMouseUp={(e) => {
+              onBlur={(e) => {
                 const value = Number(e.target.value);
                 chrome.storage.sync.set({ lineSpacing: value });
               }}
