@@ -47,6 +47,9 @@ function App() {
     sendMessageToTab({ action: "toggleHighContrast", enabled: checked });
   };
 
+  const fontScaleMax = dyslexiaFont ? 1.35 : 2;
+  const letterSpacingMax = dyslexiaFont ? 0.4 : 0.5;
+
   return (
     <>
       <header>
@@ -93,7 +96,7 @@ function App() {
               id="fontScale"
               type="range"
               min="0.5"
-              max="2"
+              max={fontScaleMax}
               step="0.05"
               value={fontSize}
               onChange={(e) => {
@@ -120,7 +123,7 @@ function App() {
               id="letterSpacing"
               type="range"
               min="0"
-              max="0.5"
+              max={letterSpacingMax}
               step="0.01"
               value={letterSpacing}
               onChange={(e) => {
