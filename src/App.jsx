@@ -59,7 +59,7 @@ function App() {
       <main>
         <section className="switch-section" aria-label="Accessibility toggles">
           <div className="switch-group">
-            <span id="dyslexiaFontLabel">Toggle Dyslexia Font</span>
+            <span id="dyslexiaFontLabel">Toggle OpenDyslexic Font</span>
             <label htmlFor="dyslexiaFont" className="switch">
               <input
                 id="dyslexiaFont"
