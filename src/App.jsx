@@ -117,8 +117,8 @@ function App() {
             <input
               type="range"
               min="0"
-              max="5"
-              step="0.05"
+              max="0.5"
+              step="0.01"
               value={letterSpacing}
               onChange={(e) => adjustLetterSpacing(Number(e.target.value))}
               className="range-slider"

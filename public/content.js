@@ -32,13 +32,17 @@ styleElement.textContent = `
     --a11y-line-height: 1.5;
   }
 
-  /* Dyslexic font */
+  body,
+  body * {
+    letter-spacing: var(--a11y-letter-spacing, 0em) !important;
+    line-height: var(--a11y-line-height, 1.5) !important;
+  }
+
   body.font-dyslexic,
   body.font-dyslexic * {
     font-family: 'OpenDyslexic', sans-serif !important;
   }
 
-  /* High contrast */
   body.high-contrast img,
   body.high-contrast svg,
   body.high-contrast canvas {
