@@ -8,23 +8,36 @@ function App() {
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [lineSpacing, setLineSpacing] = useState(1.5);
 
+  const [isSiteDisabled, setIsSiteDisabled] = useState(false);
+  const [currentDomain, setCurrentDomain] = useState("");
+
   useEffect(() => {
-    chrome.storage.sync.get(
-      {
-        isDyslexia: false,
-        isContrast: false,
-        fontSize: 1,
-        letterSpacing: 0,
-        lineSpacing: 1.5
-      },
-      (result) => {
-        setDyslexiaFont(result.isDyslexia);
-        setHighContrast(result.isContrast);
-        setFontSize(result.fontSize);
-        setLetterSpacing(result.letterSpacing);
-        setLineSpacing(result.lineSpacing);
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        const url = new URL(tabs[0].url);
+        const domain = url.hostname;
+        setCurrentDomain(domain);
+
+        chrome.storage.sync.get(
+          {
+            isDyslexia: false,
+            isContrast: false,
+            fontSize: 1,
+            letterSpacing: 0,
+            lineSpacing: 1.5,
+            disabledSites: [] 
+          },
+          (result) => {
+            setDyslexiaFont(result.isDyslexia);
+            setHighContrast(result.isContrast);
+            setFontSize(result.fontSize);
+            setLetterSpacing(result.letterSpacing);
+            setLineSpacing(result.lineSpacing);
+            setIsSiteDisabled(result.disabledSites.includes(domain));
+          }
+        );
       }
-    );
+    });
   }, []);
 
   const sendMessageToTab = (message) => {
