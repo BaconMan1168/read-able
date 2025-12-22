@@ -48,6 +48,22 @@ function App() {
     });
   };
 
+  const toggleSiteDisable = (checked) => {
+    chrome.storage.sync.get({ disabledSites: [] }, (result) => {
+      let list = result.disabledSites;
+      if (checked) {
+        if (!list.includes(currentDomain)) list.push(currentDomain);
+      } else {
+        list = list.filter(site => site !== currentDomain);
+      }
+      
+      chrome.storage.sync.set({ disabledSites: list }, () => {
+        setIsSiteDisabled(checked);
+        chrome.tabs.reload();
+      });
+    });
+  };
+
   const toggleDyslexiaFont = (checked) => {
     setDyslexiaFont(checked);
     chrome.storage.sync.set({ isDyslexia: checked });
@@ -71,6 +87,21 @@ function App() {
       </header>
       <main>
         <section className="switch-section" aria-label="Accessibility toggles">
+          <div className="switch-group">
+            <span id="siteToggleLabel">Disable ReadAble on this Site</span>
+            <label htmlFor="siteToggle" className="switch">
+              <input
+                id="siteToggle"
+                type="checkbox"
+                checked={isSiteDisabled}
+                onChange={(e) => toggleSiteDisable(e.target.checked)}
+                aria-checked={isSiteDisabled}
+                aria-labelledby="siteToggleLabel"
+              />
+              <span className="slider round" role="presentation"></span>
+            </label>
+          </div>
+
           <div className="switch-group">
             <span id="dyslexiaFontLabel">Toggle OpenDyslexic Font</span>
             <label htmlFor="dyslexiaFont" className="switch">
