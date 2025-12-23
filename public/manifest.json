@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ReadAble - Accessible Reading Tools",
   "description": "An all-in-one extension which makes reading on the internet more accessible to people with disabilities",
-  "version": "1.02",
+  "version": "1.1",
   "permissions": ["activeTab", "storage"],
   "background": {
     "service_worker": "background.js"
