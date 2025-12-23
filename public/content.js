@@ -3,7 +3,7 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
 
   if (result.disabledSites.includes(domain)) {
     console.log(`ReadAble is disabled on ${domain}`);
-    return; // Stop execution here
+    return; 
   }
 
   const styleElement = document.createElement("style");
@@ -33,16 +33,39 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
 
     :root {
       --a11y-letter-spacing: 0em;
-      --a11y-line-height: 1.5;
+      --a11y-line-height: normal;
     }
 
-    body, body * {
-      letter-spacing: var(--a11y-letter-spacing, 0em) !important;
-      line-height: var(--a11y-line-height, 1.5) !important;
+    body.readable-active p,
+    body.readable-active span:not([role="button"]):not(.material-icons):not(.icon),
+    body.readable-active h1, body.readable-active h2, body.readable-active h3,
+    body.readable-active h4, body.readable-active h5, body.readable-active h6,
+    body.readable-active li,
+    body.readable-active td, body.readable-active th,
+    body.readable-active label,
+    body.readable-active a:not([role="button"]) {
+      letter-spacing: var(--a11y-letter-spacing) !important;
     }
 
-    body.font-dyslexic, body.font-dyslexic * {
+    body.readable-active p,
+    body.readable-active li,
+    body.readable-active td, body.readable-active th {
+      line-height: var(--a11y-line-height) !important;
+    }
+
+    body.font-dyslexic p, body.font-dyslexic span,
+    body.font-dyslexic h1, body.font-dyslexic h2, body.font-dyslexic h3,
+    body.font-dyslexic h4, body.font-dyslexic h5, body.font-dyslexic h6,
+    body.font-dyslexic li, body.font-dyslexic a, body.font-dyslexic button,
+    body.font-dyslexic input, body.font-dyslexic textarea, body.font-dyslexic label {
       font-family: 'OpenDyslexic', sans-serif !important;
+    }
+
+    body canvas,
+    body [role="img"],
+    body .no-scale {
+      letter-spacing: 0 !important;
+      line-height: normal !important;
     }
 
     body.high-contrast img, body.high-contrast svg, body.high-contrast canvas {
@@ -99,13 +122,35 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
   const originalFontSizes = new Map();
   let currentScale = 1;
 
+  const EXCLUDED_SELECTORS = [
+    'canvas',
+    '[role="img"]',
+    '.material-icons',
+    '.icon',
+    'svg',
+    'path',
+    '[data-no-scale]'
+  ];
+
+  function shouldExcludeElement(el) {
+    return EXCLUDED_SELECTORS.some(selector => {
+      try {
+        return el.matches && el.matches(selector);
+      } catch {
+        return false;
+      }
+    });
+  }
+
   function cacheOriginalFontSizes(root = document.body) {
+    if (!root || root.nodeType !== 1) return;
+
     const elements = root.querySelectorAll("*");
     elements.forEach(el => {
-      if (!originalFontSizes.has(el)) {
+      if (!originalFontSizes.has(el) && !shouldExcludeElement(el)) {
         const style = window.getComputedStyle(el);
         const size = parseFloat(style.fontSize);
-        if (!isNaN(size)) {
+        if (!isNaN(size) && size > 0) {
           originalFontSizes.set(el, size);
         }
       }
@@ -114,24 +159,47 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
 
   function applyScale(scale) {
     currentScale = scale;
+    
+    const toDelete = [];
     originalFontSizes.forEach((baseSize, el) => {
-      el.style.fontSize = (baseSize * scale) + "px";
+      if (!document.contains(el)) {
+        toDelete.push(el);
+      }
+    });
+    toDelete.forEach(el => originalFontSizes.delete(el));
+
+    originalFontSizes.forEach((baseSize, el) => {
+      if (scale === 1) {
+        el.style.fontSize = '';
+      } else {
+        el.style.fontSize = (baseSize * scale) + "px";
+      }
     });
   }
 
   cacheOriginalFontSizes();
 
   const observer = new MutationObserver(mutations => {
-    mutations.forEach(m => {
-      m.addedNodes.forEach(node => {
+    let needsUpdate = false;
+    
+    mutations.forEach(mutation => {
+      mutation.addedNodes.forEach(node => {
         if (node.nodeType === 1) {
           cacheOriginalFontSizes(node);
-          applyScale(currentScale); 
+          needsUpdate = true;
         }
       });
     });
+    
+    if (needsUpdate && currentScale !== 1) {
+      applyScale(currentScale);
+    }
   });
-  observer.observe(document.body, { childList: true, subtree: true });
+
+  observer.observe(document.body, { 
+    childList: true, 
+    subtree: true 
+  });
 
   chrome.storage.sync.get(
     {
@@ -142,16 +210,23 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       lineSpacing: 1.5
     },
     (result) => {
-      if (result.isDyslexia){
-        document.body.classList.toggle("font-dyslexic", result.isDyslexia);
+      const hasActiveSettings = result.letterSpacing !== 0 || result.lineSpacing !== 1.5;
+      if (hasActiveSettings) {
+        document.body.classList.add("readable-active");
       }
-      if (result.isContrast){
-        document.body.classList.toggle("high-contrast", result.isContrast);
+
+      if (result.isDyslexia) {
+        document.body.classList.add("font-dyslexic");
+      }
+      if (result.isContrast) {
+        document.body.classList.add("high-contrast");
       }
 
       applyScale(result.fontSize);
-      document.body.style.setProperty("--a11y-letter-spacing", `${result.letterSpacing}em`);
-      document.body.style.setProperty("--a11y-line-height", `${result.lineSpacing}`);
+      
+      const lineHeight = result.lineSpacing === 1.5 ? 'normal' : result.lineSpacing;
+      document.documentElement.style.setProperty("--a11y-letter-spacing", `${result.letterSpacing}em`);
+      document.documentElement.style.setProperty("--a11y-line-height", lineHeight);
     }
   );
 
@@ -166,10 +241,15 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       applyScale(message.fontSize);
     }
     if (message.action === "adjustLetterSpacing") {
-      document.body.style.setProperty("--a11y-letter-spacing", `${message.letterSpacing}em`);
+      const hasActiveSettings = message.letterSpacing !== 0;
+      document.body.classList.toggle("readable-active", hasActiveSettings);
+      document.documentElement.style.setProperty("--a11y-letter-spacing", `${message.letterSpacing}em`);
     }
     if (message.action === "adjustLineSpacing") {
-      document.body.style.setProperty("--a11y-line-height", `${message.lineSpacing}`);
+      const hasActiveSettings = message.lineSpacing !== 1.5;
+      document.body.classList.toggle("readable-active", hasActiveSettings);
+      const lineHeight = message.lineSpacing === 1.5 ? 'normal' : message.lineSpacing;
+      document.documentElement.style.setProperty("--a11y-line-height", lineHeight);
     }
   });
 });
