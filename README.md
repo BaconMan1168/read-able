@@ -1,12 +1,42 @@
-# React + Vite
+# ReadAble
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+ReadAble is a Manifest V3 Chrome extension that adds accessible reading tools to web pages: OpenDyslexic font, high contrast, font scaling, spacing controls, scoped application modes, and reading aids.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Install dependencies:
 
-## Expanding the ESLint configuration
+```sh
+npm install
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Run checks:
+
+```sh
+npm run lint
+npm run build
+```
+
+Load the extension locally:
+
+1. Run `npm run build`.
+2. Open `chrome://extensions`.
+3. Enable Developer mode.
+4. Click Load unpacked.
+5. Select the `dist` directory.
+
+## Packaging
+
+Create the Chrome Web Store zip:
+
+```sh
+npm run package
+```
+
+The package script builds `dist`, removes unused font sources/formats and local metadata, then writes `dist.zip`.
+
+## Chrome Web Store Updates
+
+When code, manifest, or packaged assets change, upload a new zip in the Chrome Web Store Developer Dashboard. The manifest version must be higher than the currently published version.
+
+This extension currently uses the existing `activeTab` and `storage` permissions. Adding new permissions later can change the user-facing permission prompt during updates.
