@@ -2,9 +2,26 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
   const domain = window.location.hostname;
 
   if (result.disabledSites.includes(domain)) {
-    console.log(`ReadAble is disabled on ${domain}`);
-    return; 
+    return;
   }
+
+  const DEFAULT_STATE = {
+    isDyslexia: false,
+    isContrast: false,
+    fontSize: 1,
+    letterSpacing: 0,
+    lineSpacing: 1.5,
+    scope: "all",
+    readingAid: "none",
+    readingAidHeight: 72,
+    readingAidOpacity: 0.24,
+    readingAidColor: "#ffe066",
+  };
+
+  const state = { ...DEFAULT_STATE };
+  const originalFontSizes = new Map();
+  let applyFrame = null;
+  let pointerY = Math.round(window.innerHeight / 2);
 
   const styleElement = document.createElement("style");
   styleElement.dataset.ext = "accessibility";
@@ -34,22 +51,27 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     :root {
       --a11y-letter-spacing: 0em;
       --a11y-line-height: normal;
+      --readable-ruler-y: 50vh;
+      --readable-aid-height: 72px;
+      --readable-aid-opacity: 0.24;
+      --readable-aid-color: #ffe066;
     }
 
-    body.readable-active p,
-    body.readable-active span:not([role="button"]):not(.material-icons):not(.icon),
-    body.readable-active h1, body.readable-active h2, body.readable-active h3,
-    body.readable-active h4, body.readable-active h5, body.readable-active h6,
-    body.readable-active li,
-    body.readable-active td, body.readable-active th,
-    body.readable-active label,
-    body.readable-active a:not([role="button"]) {
+    body.readable-letter-spacing p,
+    body.readable-letter-spacing span:not([role="button"]):not(.material-icons):not(.material-symbols-outlined):not(.material-symbols-rounded):not(.material-symbols-sharp):not(.icon),
+    body.readable-letter-spacing h1, body.readable-letter-spacing h2, body.readable-letter-spacing h3,
+    body.readable-letter-spacing h4, body.readable-letter-spacing h5, body.readable-letter-spacing h6,
+    body.readable-letter-spacing li,
+    body.readable-letter-spacing td, body.readable-letter-spacing th,
+    body.readable-letter-spacing label,
+    body.readable-letter-spacing a:not([role="button"]) {
       letter-spacing: var(--a11y-letter-spacing) !important;
     }
 
-    body.readable-active p,
-    body.readable-active li,
-    body.readable-active td, body.readable-active th {
+    body.readable-line-spacing p,
+    body.readable-line-spacing li,
+    body.readable-line-spacing td,
+    body.readable-line-spacing th {
       line-height: var(--a11y-line-height) !important;
     }
 
@@ -62,7 +84,9 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     }
 
     body canvas,
+    body svg,
     body [role="img"],
+    body [aria-hidden="true"],
     body .no-scale {
       letter-spacing: 0 !important;
       line-height: normal !important;
@@ -115,141 +139,301 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       outline: 2px solid #19ebfe !important;
       outline-offset: 2px !important;
     }
+
+    .readable-reading-aid {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      pointer-events: none;
+      display: none;
+    }
+
+    .readable-reading-aid[data-mode="ruler"],
+    .readable-reading-aid[data-mode="focus"] {
+      display: block;
+    }
+
+    .readable-reading-aid[data-mode="ruler"]::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2));
+      height: var(--readable-aid-height);
+      background: var(--readable-aid-color);
+      opacity: var(--readable-aid-opacity);
+    }
+
+    .readable-reading-aid[data-mode="focus"] {
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, var(--readable-aid-opacity)) 0,
+          rgba(0, 0, 0, var(--readable-aid-opacity)) calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2)),
+          transparent calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2)),
+          transparent calc(var(--readable-ruler-y) + (var(--readable-aid-height) / 2)),
+          rgba(0, 0, 0, var(--readable-aid-opacity)) calc(var(--readable-ruler-y) + (var(--readable-aid-height) / 2)),
+          rgba(0, 0, 0, var(--readable-aid-opacity)) 100%
+        );
+    }
   `;
 
   document.head.appendChild(styleElement);
 
-  const originalFontSizes = new Map();
-  let currentScale = 1;
+  const overlayElement = document.createElement("div");
+  overlayElement.className = "readable-reading-aid";
+  overlayElement.dataset.mode = "none";
+  document.documentElement.appendChild(overlayElement);
 
   const EXCLUDED_SELECTORS = [
-    'canvas',
-    '[role="img"]',
-    '.material-icons',
-    '.icon',
-    'svg',
-    'path',
-    '[data-no-scale]'
+    "canvas",
+    "svg",
+    "path",
+    "img",
+    "picture",
+    "video",
+    "audio",
+    "iframe",
+    "object",
+    "embed",
+    "[hidden]",
+    "[aria-hidden='true']",
+    "[role='img']",
+    "[data-no-scale]",
+    ".material-icons",
+    ".material-symbols-outlined",
+    ".material-symbols-rounded",
+    ".material-symbols-sharp",
+    ".icon",
+    ".fa",
+    ".fas",
+    ".far",
+    ".fab",
+    ".fal",
+    ".fad",
+    ".lucide",
   ];
 
   function shouldExcludeElement(el) {
-    return EXCLUDED_SELECTORS.some(selector => {
+    if (!el.matches) return true;
+
+    if (el.closest(".readable-reading-aid")) {
+      return true;
+    }
+
+    const className = typeof el.className === "string" ? el.className : "";
+    if (/\b(icon|material-icons|material-symbols|fa|fas|far|fab|fal|fad|lucide)\b/i.test(className)) {
+      return true;
+    }
+
+    return EXCLUDED_SELECTORS.some((selector) => {
       try {
-        return el.matches && el.matches(selector);
+        return el.matches(selector);
       } catch {
         return false;
       }
     });
   }
 
-  function cacheOriginalFontSizes(root = document.body) {
-    if (!root || root.nodeType !== 1) return;
+  function getMainRoots() {
+    const roots = Array.from(document.querySelectorAll("article, main, [role='main']"));
+    return roots.length > 0 ? roots : [document.body];
+  }
 
-    const elements = root.querySelectorAll("*");
-    elements.forEach(el => {
-      if (!originalFontSizes.has(el) && !shouldExcludeElement(el)) {
-        const style = window.getComputedStyle(el);
-        const size = parseFloat(style.fontSize);
-        if (!isNaN(size) && size > 0) {
-          originalFontSizes.set(el, size);
+  function getSelectionRoots() {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      return [];
+    }
+
+    const selectedElements = new Set();
+    const allElements = document.body.querySelectorAll("*");
+
+    for (let index = 0; index < selection.rangeCount; index += 1) {
+      const range = selection.getRangeAt(index);
+      allElements.forEach((el) => {
+        try {
+          if (range.intersectsNode(el)) {
+            selectedElements.add(el);
+          }
+        } catch {
+          // Some detached nodes can throw while the page is changing.
         }
-      }
-    });
+      });
+    }
+
+    return Array.from(selectedElements);
   }
 
-  function applyScale(scale) {
-    currentScale = scale;
-    
-    const toDelete = [];
-    originalFontSizes.forEach((baseSize, el) => {
-      if (!document.contains(el)) {
-        toDelete.push(el);
-      }
-    });
-    toDelete.forEach(el => originalFontSizes.delete(el));
+  function getScopeRoots() {
+    if (state.scope === "main") {
+      return getMainRoots();
+    }
 
-    originalFontSizes.forEach((baseSize, el) => {
-      if (scale === 1) {
-        el.style.fontSize = '';
-      } else {
-        el.style.fontSize = (baseSize * scale) + "px";
-      }
-    });
+    if (state.scope === "selection") {
+      return getSelectionRoots();
+    }
+
+    return [document.body];
   }
 
-  cacheOriginalFontSizes();
+  function getScalableElements() {
+    const roots = getScopeRoots().filter(Boolean);
+    const elements = new Set();
 
-  const observer = new MutationObserver(mutations => {
-    let needsUpdate = false;
-    
-    mutations.forEach(mutation => {
-      mutation.addedNodes.forEach(node => {
-        if (node.nodeType === 1) {
-          cacheOriginalFontSizes(node);
-          needsUpdate = true;
+    roots.forEach((root) => {
+      if (root !== document.body && !shouldExcludeElement(root)) {
+        elements.add(root);
+      }
+
+      root.querySelectorAll("*").forEach((el) => {
+        if (!shouldExcludeElement(el)) {
+          elements.add(el);
         }
       });
     });
-    
-    if (needsUpdate && currentScale !== 1) {
-      applyScale(currentScale);
+
+    return elements;
+  }
+
+  function cacheOriginalFontSize(el) {
+    if (originalFontSizes.has(el)) return;
+
+    const style = window.getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") return;
+
+    const computedSize = parseFloat(style.fontSize);
+    if (Number.isNaN(computedSize) || computedSize <= 0) return;
+
+    const baseSize = state.fontSize === 1 ? computedSize : computedSize / state.fontSize;
+    originalFontSizes.set(el, {
+      baseSize,
+      inlineFontSize: el.style.fontSize,
+    });
+  }
+
+  function restoreFontSize(el, original) {
+    el.style.fontSize = original.inlineFontSize;
+  }
+
+  function pruneOriginalFontSizes() {
+    originalFontSizes.forEach((_, el) => {
+      if (!document.contains(el)) {
+        originalFontSizes.delete(el);
+      }
+    });
+  }
+
+  function applyFontScale() {
+    const scopedElements = getScalableElements();
+    pruneOriginalFontSizes();
+
+    scopedElements.forEach(cacheOriginalFontSize);
+
+    originalFontSizes.forEach((original, el) => {
+      if (state.fontSize === 1 || !scopedElements.has(el)) {
+        restoreFontSize(el, original);
+      } else {
+        el.style.fontSize = `${original.baseSize * state.fontSize}px`;
+      }
+    });
+  }
+
+  function applyReadingAid() {
+    const mode = state.readingAid === "ruler" || state.readingAid === "focus" ? state.readingAid : "none";
+
+    overlayElement.dataset.mode = mode;
+    document.documentElement.style.setProperty("--readable-ruler-y", `${pointerY}px`);
+    document.documentElement.style.setProperty("--readable-aid-height", `${state.readingAidHeight}px`);
+    document.documentElement.style.setProperty("--readable-aid-opacity", state.readingAidOpacity);
+    document.documentElement.style.setProperty("--readable-aid-color", state.readingAidColor);
+  }
+
+  function applySettings() {
+    document.body.classList.toggle("font-dyslexic", state.isDyslexia);
+    document.body.classList.toggle("high-contrast", state.isContrast);
+    document.body.classList.toggle("readable-letter-spacing", state.letterSpacing !== 0);
+    document.body.classList.toggle("readable-line-spacing", state.lineSpacing !== 1.5);
+
+    document.documentElement.style.setProperty("--a11y-letter-spacing", `${state.letterSpacing}em`);
+    document.documentElement.style.setProperty(
+      "--a11y-line-height",
+      state.lineSpacing === 1.5 ? "normal" : state.lineSpacing
+    );
+
+    applyFontScale();
+    applyReadingAid();
+  }
+
+  function scheduleApplySettings() {
+    if (applyFrame !== null) {
+      cancelAnimationFrame(applyFrame);
+    }
+
+    applyFrame = requestAnimationFrame(() => {
+      applyFrame = null;
+      applySettings();
+    });
+  }
+
+  function updateState(nextState) {
+    Object.assign(state, nextState);
+    scheduleApplySettings();
+  }
+
+  function handlePointerMove(event) {
+    pointerY = event.clientY;
+    if (state.readingAid !== "none") {
+      applyReadingAid();
+    }
+  }
+
+  window.addEventListener("mousemove", handlePointerMove, { passive: true });
+
+  const observer = new MutationObserver((mutations) => {
+    if (state.fontSize === 1) return;
+
+    const hasAddedElements = mutations.some((mutation) =>
+      Array.from(mutation.addedNodes).some((node) => node.nodeType === Node.ELEMENT_NODE)
+    );
+
+    if (hasAddedElements) {
+      scheduleApplySettings();
     }
   });
 
-  observer.observe(document.body, { 
-    childList: true, 
-    subtree: true 
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
   });
 
-  chrome.storage.sync.get(
-    {
-      isDyslexia: false,
-      isContrast: false,
-      fontSize: 1,
-      letterSpacing: 0,
-      lineSpacing: 1.5
-    },
-    (result) => {
-      const hasActiveSettings = result.letterSpacing !== 0 || result.lineSpacing !== 1.5;
-      if (hasActiveSettings) {
-        document.body.classList.add("readable-active");
-      }
+  chrome.storage.sync.get(DEFAULT_STATE, (storedState) => {
+    updateState(storedState);
+  });
 
-      if (result.isDyslexia) {
-        document.body.classList.add("font-dyslexic");
-      }
-      if (result.isContrast) {
-        document.body.classList.add("high-contrast");
-      }
-
-      applyScale(result.fontSize);
-      
-      const lineHeight = result.lineSpacing === 1.5 ? 'normal' : result.lineSpacing;
-      document.documentElement.style.setProperty("--a11y-letter-spacing", `${result.letterSpacing}em`);
-      document.documentElement.style.setProperty("--a11y-line-height", lineHeight);
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message.action === "updateSettings") {
+      updateState(message.settings);
+      sendResponse({ ok: true });
+      return;
     }
-  );
 
-  chrome.runtime.onMessage.addListener((message) => {
     if (message.action === "toggleDyslexicFont") {
-      document.body.classList.toggle("font-dyslexic", message.enabled);
+      updateState({ isDyslexia: message.enabled });
     }
     if (message.action === "toggleHighContrast") {
-      document.body.classList.toggle("high-contrast", message.enabled);
+      updateState({ isContrast: message.enabled });
     }
     if (message.action === "adjustFontSize") {
-      applyScale(message.fontSize);
+      updateState({ fontSize: message.fontSize });
     }
     if (message.action === "adjustLetterSpacing") {
-      const hasActiveSettings = message.letterSpacing !== 0;
-      document.body.classList.toggle("readable-active", hasActiveSettings);
-      document.documentElement.style.setProperty("--a11y-letter-spacing", `${message.letterSpacing}em`);
+      updateState({ letterSpacing: message.letterSpacing });
     }
     if (message.action === "adjustLineSpacing") {
-      const hasActiveSettings = message.lineSpacing !== 1.5;
-      document.body.classList.toggle("readable-active", hasActiveSettings);
-      const lineHeight = message.lineSpacing === 1.5 ? 'normal' : message.lineSpacing;
-      document.documentElement.style.setProperty("--a11y-line-height", lineHeight);
+      updateState({ lineSpacing: message.lineSpacing });
     }
+
+    sendResponse({ ok: true });
   });
 });
