@@ -8,14 +8,36 @@ header {
   padding-bottom: 8px;
 }
 
-.request-button {
+.reset-button {
   appearance: none;
-  padding:8px;
-  border-radius:25px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #b8c4d4;
+  border-radius: 6px;
+  background: #ffffff;
   cursor: pointer;
   transition: background-color 0.2s ease-in;
 }
 
+.reset-button:hover:not(:disabled) {
+  background: #eef6ff;
+}
+
+.reset-button:disabled,
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.status-message {
+  padding: 8px;
+  border: 1px solid #f4c15d;
+  border-radius: 6px;
+  background: #fff7e8;
+  color: #604000;
+  font-size: 0.9rem;
+}
 
 .switch-section {
   padding: 10px 0px 10px 0px;
@@ -28,10 +50,11 @@ header {
   display: flex;
   gap:8px;
   align-items: center;
+  justify-content: space-between;
 }
 
 .switch-group span {
-  max-width:100px;
+  max-width: 210px;
 }
 
 /* The switch - the box around the slider */
@@ -155,4 +178,33 @@ input:checked + .slider:before {
 .range-slider:focus {
   outline: 3px solid #2196F3; /* bright visible outline */
   outline-offset: 2px;
+}
+
+.control-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.control-section select {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid #b8c4d4;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.color-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.color-control input {
+  width: 44px;
+  height: 32px;
+  padding: 2px;
 }

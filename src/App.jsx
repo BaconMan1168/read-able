@@ -1,83 +1,144 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
 
-function App() {
-  const [dyslexiaFont, setDyslexiaFont] = useState(false);
-  const [highContrast, setHighContrast] = useState(false);
-  const [fontSize, setFontSize] = useState(1); 
-  const [letterSpacing, setLetterSpacing] = useState(0);
-  const [lineSpacing, setLineSpacing] = useState(1.5);
+const DEFAULT_SETTINGS = {
+  isDyslexia: false,
+  isContrast: false,
+  fontSize: 1,
+  letterSpacing: 0,
+  lineSpacing: 1.5,
+  scope: 'all',
+  readingAid: 'none',
+  readingAidHeight: 72,
+  readingAidOpacity: 0.24,
+  readingAidColor: '#ffe066',
+};
 
+const SUPPORTED_PROTOCOLS = ['http:', 'https:', 'file:'];
+
+function isSupportedTabUrl(tabUrl) {
+  if (!tabUrl) return false;
+
+  try {
+    const url = new URL(tabUrl);
+    return SUPPORTED_PROTOCOLS.includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function App() {
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [isSiteDisabled, setIsSiteDisabled] = useState(false);
-  const [currentDomain, setCurrentDomain] = useState("");
+  const [currentDomain, setCurrentDomain] = useState('');
+  const [activeTabId, setActiveTabId] = useState(null);
+  const [isUnsupportedPage, setIsUnsupportedPage] = useState(false);
+  const [messageError, setMessageError] = useState('');
+  const saveTimer = useRef(null);
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        const url = new URL(tabs[0].url);
-        const domain = url.hostname;
-        setCurrentDomain(domain);
+      const tab = tabs[0];
 
-        chrome.storage.sync.get(
-          {
-            isDyslexia: false,
-            isContrast: false,
-            fontSize: 1,
-            letterSpacing: 0,
-            lineSpacing: 1.5,
-            disabledSites: [] 
-          },
-          (result) => {
-            setDyslexiaFont(result.isDyslexia);
-            setHighContrast(result.isContrast);
-            setFontSize(result.fontSize);
-            setLetterSpacing(result.letterSpacing);
-            setLineSpacing(result.lineSpacing);
-            setIsSiteDisabled(result.disabledSites.includes(domain));
-          }
-        );
+      if (!tab || !isSupportedTabUrl(tab.url)) {
+        setIsUnsupportedPage(true);
+        chrome.storage.sync.get(DEFAULT_SETTINGS, (result) => {
+          setSettings(result);
+        });
+        return;
       }
+
+      const url = new URL(tab.url);
+      const domain = url.hostname;
+      setActiveTabId(tab.id);
+      setCurrentDomain(domain);
+
+      chrome.storage.sync.get(
+        {
+          ...DEFAULT_SETTINGS,
+          disabledSites: [],
+        },
+        (result) => {
+          const { disabledSites, ...storedSettings } = result;
+          setSettings(storedSettings);
+          setIsSiteDisabled(disabledSites.includes(domain));
+        }
+      );
     });
+
+    return () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+      }
+    };
   }, []);
 
-  const sendMessageToTab = (message) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, message);
+  const saveSettings = (nextSettings) => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+    }
+
+    saveTimer.current = setTimeout(() => {
+      chrome.storage.sync.set(nextSettings);
+    }, 150);
+  };
+
+  const sendSettingsToTab = (nextSettings) => {
+    if (!activeTabId || isUnsupportedPage || isSiteDisabled) return;
+
+    chrome.tabs.sendMessage(
+      activeTabId,
+      {
+        action: 'updateSettings',
+        settings: nextSettings,
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          setMessageError('Reload this page to apply ReadAble here.');
+          return;
+        }
+
+        setMessageError('');
       }
-    });
+    );
+  };
+
+  const updateSettings = (partialSettings) => {
+    const nextSettings = { ...settings, ...partialSettings };
+    setSettings(nextSettings);
+    saveSettings(partialSettings);
+    sendSettingsToTab(nextSettings);
   };
 
   const toggleSiteDisable = (checked) => {
+    if (!currentDomain) return;
+
     chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       let list = result.disabledSites;
       if (checked) {
-        if (!list.includes(currentDomain)) list.push(currentDomain);
+        if (!list.includes(currentDomain)) list = [...list, currentDomain];
       } else {
-        list = list.filter(site => site !== currentDomain);
+        list = list.filter((site) => site !== currentDomain);
       }
-      
+
       chrome.storage.sync.set({ disabledSites: list }, () => {
         setIsSiteDisabled(checked);
-        chrome.tabs.reload();
+        if (activeTabId) {
+          chrome.tabs.reload(activeTabId);
+        }
       });
     });
   };
 
-  const toggleDyslexiaFont = (checked) => {
-    setDyslexiaFont(checked);
-    chrome.storage.sync.set({ isDyslexia: checked });
-    sendMessageToTab({ action: "toggleDyslexicFont", enabled: checked });
+  const resetSettings = () => {
+    setSettings(DEFAULT_SETTINGS);
+    chrome.storage.sync.set(DEFAULT_SETTINGS);
+    sendSettingsToTab(DEFAULT_SETTINGS);
   };
 
-  const toggleHighContrast = (checked) => {
-    setHighContrast(checked);
-    chrome.storage.sync.set({ isContrast: checked });
-    sendMessageToTab({ action: "toggleHighContrast", enabled: checked });
-  };
-
-  const fontScaleMax = dyslexiaFont ? 1.35 : 2;
-  const letterSpacingMax = dyslexiaFont ? 0.4 : 0.5;
+  const controlsDisabled = isUnsupportedPage || isSiteDisabled;
+  const fontScaleMax = settings.isDyslexia ? 1.35 : 2;
+  const letterSpacingMax = settings.isDyslexia ? 0.4 : 0.5;
 
   return (
     <>
@@ -86,14 +147,26 @@ function App() {
         <h2>Accessible Reading Tools</h2>
       </header>
       <main>
+        {isUnsupportedPage && (
+          <p className="status-message">
+            ReadAble cannot run on this page.
+          </p>
+        )}
+        {messageError && (
+          <p className="status-message">
+            {messageError}
+          </p>
+        )}
+
         <section className="switch-section" aria-label="Accessibility toggles">
           <div className="switch-group">
-            <span id="siteToggleLabel">Disable ReadAble on this Site</span>
+            <span id="siteToggleLabel">Disable on this Site</span>
             <label htmlFor="siteToggle" className="switch">
               <input
                 id="siteToggle"
                 type="checkbox"
                 checked={isSiteDisabled}
+                disabled={isUnsupportedPage || !currentDomain}
                 onChange={(e) => toggleSiteDisable(e.target.checked)}
                 aria-checked={isSiteDisabled}
                 aria-labelledby="siteToggleLabel"
@@ -103,14 +176,15 @@ function App() {
           </div>
 
           <div className="switch-group">
-            <span id="dyslexiaFontLabel">Toggle OpenDyslexic Font</span>
+            <span id="dyslexiaFontLabel">OpenDyslexic Font</span>
             <label htmlFor="dyslexiaFont" className="switch">
               <input
                 id="dyslexiaFont"
                 type="checkbox"
-                checked={dyslexiaFont}
-                onChange={(e) => toggleDyslexiaFont(e.target.checked)}
-                aria-checked={dyslexiaFont}
+                checked={settings.isDyslexia}
+                disabled={controlsDisabled}
+                onChange={(e) => updateSettings({ isDyslexia: e.target.checked })}
+                aria-checked={settings.isDyslexia}
                 aria-labelledby="dyslexiaFontLabel"
               />
               <span className="slider round" role="presentation"></span>
@@ -118,14 +192,15 @@ function App() {
           </div>
 
           <div className="switch-group">
-            <span id="highContrastLabel">Toggle High Contrast</span>
-            <label htmlFor='highContrast' className="switch">
+            <span id="highContrastLabel">High Contrast</span>
+            <label htmlFor="highContrast" className="switch">
               <input
-                id='highContrast'
+                id="highContrast"
                 type="checkbox"
-                checked={highContrast}
-                onChange={(e) => toggleHighContrast(e.target.checked)}
-                aria-checked={highContrast}
+                checked={settings.isContrast}
+                disabled={controlsDisabled}
+                onChange={(e) => updateSettings({ isContrast: e.target.checked })}
+                aria-checked={settings.isContrast}
                 aria-labelledby="highContrastLabel"
               />
               <span className="slider round" role="presentation"></span>
@@ -133,88 +208,153 @@ function App() {
           </div>
         </section>
 
+        <section className="control-section" aria-label="Scope settings">
+          <label htmlFor="scope">Scope</label>
+          <select
+            id="scope"
+            value={settings.scope}
+            disabled={controlsDisabled}
+            onChange={(e) => updateSettings({ scope: e.target.value })}
+          >
+            <option value="all">All page</option>
+            <option value="main">Main content</option>
+            <option value="selection">Selected text</option>
+          </select>
+        </section>
+
         <section className="slide-section" aria-label="Adjustable text settings">
           <div className="slide-container">
-            <label htmlFor="fontScale">Font Scale: {fontSize}×</label>
+            <label htmlFor="fontScale">Font Scale: {settings.fontSize}x</label>
             <input
               id="fontScale"
               type="range"
               min="0.5"
               max={fontScaleMax}
               step="0.05"
-              value={fontSize}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                setFontSize(value);
-                sendMessageToTab({ action: "adjustFontSize", fontSize: value });
-              }}
-              onBlur={(e) => {
-                const value = Number(e.target.value);
-                chrome.storage.sync.set({ fontSize: value });
-              }}
+              value={settings.fontSize}
+              disabled={controlsDisabled}
+              onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })}
               className="range-slider"
               aria-valuemin={0.5}
-              aria-valuemax={2}
-              aria-valuenow={fontSize}
-              aria-valuetext={`Font size ${fontSize} times normal`}
+              aria-valuemax={fontScaleMax}
+              aria-valuenow={settings.fontSize}
+              aria-valuetext={`Font size ${settings.fontSize} times normal`}
               aria-label="Adjust font size"
             />
           </div>
 
           <div className="slide-container">
-            <label htmlFor="letterSpacing">Letter Spacing: {letterSpacing}em</label>
+            <label htmlFor="letterSpacing">Letter Spacing: {settings.letterSpacing}em</label>
             <input
               id="letterSpacing"
               type="range"
               min="0"
               max={letterSpacingMax}
               step="0.01"
-              value={letterSpacing}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                setLetterSpacing(value);
-                sendMessageToTab({ action: "adjustLetterSpacing", letterSpacing: value });
-              }}
-              onBlur={(e) => {
-                const value = Number(e.target.value);
-                chrome.storage.sync.set({ letterSpacing: value });
-              }}
+              value={settings.letterSpacing}
+              disabled={controlsDisabled}
+              onChange={(e) => updateSettings({ letterSpacing: Number(e.target.value) })}
               className="range-slider"
               aria-valuemin={0}
-              aria-valuemax={0.5}
-              aria-valuenow={letterSpacing}
-              aria-valuetext={`Letter spacing ${letterSpacing} em`}
+              aria-valuemax={letterSpacingMax}
+              aria-valuenow={settings.letterSpacing}
+              aria-valuetext={`Letter spacing ${settings.letterSpacing} em`}
               aria-label="Adjust letter spacing"
             />
           </div>
 
           <div className="slide-container">
-            <label htmlFor="lineSpacing">Line Spacing: {lineSpacing}</label>
+            <label htmlFor="lineSpacing">Line Spacing: {settings.lineSpacing}</label>
             <input
               id="lineSpacing"
               type="range"
               min="1"
               max="3"
               step="0.05"
-              value={lineSpacing}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                setLineSpacing(value);
-                sendMessageToTab({ action: "adjustLineSpacing", lineSpacing: value });
-              }}
-              onBlur={(e) => {
-                const value = Number(e.target.value);
-                chrome.storage.sync.set({ lineSpacing: value });
-              }}
+              value={settings.lineSpacing}
+              disabled={controlsDisabled}
+              onChange={(e) => updateSettings({ lineSpacing: Number(e.target.value) })}
               className="range-slider"
               aria-valuemin={1}
               aria-valuemax={3}
-              aria-valuenow={lineSpacing}
-              aria-valuetext={`Line spacing ${lineSpacing}`}
+              aria-valuenow={settings.lineSpacing}
+              aria-valuetext={`Line spacing ${settings.lineSpacing}`}
               aria-label="Adjust line spacing"
             />
           </div>
         </section>
+
+        <section className="control-section" aria-label="Reading aid settings">
+          <label htmlFor="readingAid">Reading Aid</label>
+          <select
+            id="readingAid"
+            value={settings.readingAid}
+            disabled={controlsDisabled}
+            onChange={(e) => updateSettings({ readingAid: e.target.value })}
+          >
+            <option value="none">None</option>
+            <option value="ruler">Ruler</option>
+            <option value="focus">Focus mask</option>
+          </select>
+
+          {settings.readingAid !== 'none' && (
+            <>
+              <div className="slide-container">
+                <label htmlFor="readingAidHeight">Aid Height: {settings.readingAidHeight}px</label>
+                <input
+                  id="readingAidHeight"
+                  type="range"
+                  min="32"
+                  max="180"
+                  step="4"
+                  value={settings.readingAidHeight}
+                  disabled={controlsDisabled}
+                  onChange={(e) => updateSettings({ readingAidHeight: Number(e.target.value) })}
+                  className="range-slider"
+                  aria-label="Adjust reading aid height"
+                />
+              </div>
+
+              <div className="slide-container">
+                <label htmlFor="readingAidOpacity">Aid Opacity: {settings.readingAidOpacity}</label>
+                <input
+                  id="readingAidOpacity"
+                  type="range"
+                  min="0.1"
+                  max="0.7"
+                  step="0.02"
+                  value={settings.readingAidOpacity}
+                  disabled={controlsDisabled}
+                  onChange={(e) => updateSettings({ readingAidOpacity: Number(e.target.value) })}
+                  className="range-slider"
+                  aria-label="Adjust reading aid opacity"
+                />
+              </div>
+
+              {settings.readingAid === 'ruler' && (
+                <div className="color-control">
+                  <label htmlFor="readingAidColor">Aid Color</label>
+                  <input
+                    id="readingAidColor"
+                    type="color"
+                    value={settings.readingAidColor}
+                    disabled={controlsDisabled}
+                    onChange={(e) => updateSettings({ readingAidColor: e.target.value })}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        <button
+          type="button"
+          className="reset-button"
+          disabled={controlsDisabled}
+          onClick={resetSettings}
+        >
+          Reset all
+        </button>
       </main>
     </>
   );
