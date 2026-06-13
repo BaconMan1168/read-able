@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "ReadAble - Accessible Reading Tools",
-  "description": "An all-in-one extension which makes reading on the internet more accessible to people with disabilities",
+  "name": "ReadAble: Dyslexia Font & Reading Tools",
+  "description": "Make websites easier to read with OpenDyslexic, a reading ruler, spacing controls, larger text, and high contrast.",
   "version": "1.4.0",
   "permissions": ["activeTab", "storage"],
   "action": {
