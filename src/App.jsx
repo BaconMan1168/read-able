@@ -7,7 +7,6 @@ const DEFAULT_SETTINGS = {
   fontSize: 1,
   letterSpacing: 0,
   lineSpacing: 1.5,
-  scope: 'all',
   readingAid: 'none',
   readingAidHeight: 72,
   readingAidOpacity: 0.24,
@@ -206,20 +205,6 @@ function App() {
               <span className="slider round" role="presentation"></span>
             </label>
           </div>
-        </section>
-
-        <section className="control-section" aria-label="Scope settings">
-          <label htmlFor="scope">Scope</label>
-          <select
-            id="scope"
-            value={settings.scope}
-            disabled={controlsDisabled}
-            onChange={(e) => updateSettings({ scope: e.target.value })}
-          >
-            <option value="all">All page</option>
-            <option value="main">Main content</option>
-            <option value="selection">Selected text</option>
-          </select>
         </section>
 
         <section className="slide-section" aria-label="Adjustable text settings">
