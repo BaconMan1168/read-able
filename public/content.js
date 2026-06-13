@@ -20,6 +20,7 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
 
   const state = { ...DEFAULT_STATE };
   const originalFontSizes = new Map();
+  const scopedClassRoots = new Set();
   let applyFrame = null;
   let pointerY = Math.round(window.innerHeight / 2);
 
@@ -57,29 +58,32 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       --readable-aid-color: #ffe066;
     }
 
-    body.readable-letter-spacing p,
-    body.readable-letter-spacing span:not([role="button"]):not(.material-icons):not(.material-symbols-outlined):not(.material-symbols-rounded):not(.material-symbols-sharp):not(.icon),
-    body.readable-letter-spacing h1, body.readable-letter-spacing h2, body.readable-letter-spacing h3,
-    body.readable-letter-spacing h4, body.readable-letter-spacing h5, body.readable-letter-spacing h6,
-    body.readable-letter-spacing li,
-    body.readable-letter-spacing td, body.readable-letter-spacing th,
-    body.readable-letter-spacing label,
-    body.readable-letter-spacing a:not([role="button"]) {
+    .readable-scope-root.readable-letter-spacing:is(p, span:not([role="button"]):not(.material-icons):not(.material-symbols-outlined):not(.material-symbols-rounded):not(.material-symbols-sharp):not(.icon), h1, h2, h3, h4, h5, h6, li, td, th, label, a:not([role="button"])),
+    .readable-scope-root.readable-letter-spacing p,
+    .readable-scope-root.readable-letter-spacing span:not([role="button"]):not(.material-icons):not(.material-symbols-outlined):not(.material-symbols-rounded):not(.material-symbols-sharp):not(.icon),
+    .readable-scope-root.readable-letter-spacing h1, .readable-scope-root.readable-letter-spacing h2, .readable-scope-root.readable-letter-spacing h3,
+    .readable-scope-root.readable-letter-spacing h4, .readable-scope-root.readable-letter-spacing h5, .readable-scope-root.readable-letter-spacing h6,
+    .readable-scope-root.readable-letter-spacing li,
+    .readable-scope-root.readable-letter-spacing td, .readable-scope-root.readable-letter-spacing th,
+    .readable-scope-root.readable-letter-spacing label,
+    .readable-scope-root.readable-letter-spacing a:not([role="button"]) {
       letter-spacing: var(--a11y-letter-spacing) !important;
     }
 
-    body.readable-line-spacing p,
-    body.readable-line-spacing li,
-    body.readable-line-spacing td,
-    body.readable-line-spacing th {
+    .readable-scope-root.readable-line-spacing:is(p, li, td, th),
+    .readable-scope-root.readable-line-spacing p,
+    .readable-scope-root.readable-line-spacing li,
+    .readable-scope-root.readable-line-spacing td,
+    .readable-scope-root.readable-line-spacing th {
       line-height: var(--a11y-line-height) !important;
     }
 
-    body.font-dyslexic p, body.font-dyslexic span,
-    body.font-dyslexic h1, body.font-dyslexic h2, body.font-dyslexic h3,
-    body.font-dyslexic h4, body.font-dyslexic h5, body.font-dyslexic h6,
-    body.font-dyslexic li, body.font-dyslexic a, body.font-dyslexic button,
-    body.font-dyslexic input, body.font-dyslexic textarea, body.font-dyslexic label {
+    .readable-scope-root.font-dyslexic:is(p, span, h1, h2, h3, h4, h5, h6, li, a, button, input, textarea, label),
+    .readable-scope-root.font-dyslexic p, .readable-scope-root.font-dyslexic span,
+    .readable-scope-root.font-dyslexic h1, .readable-scope-root.font-dyslexic h2, .readable-scope-root.font-dyslexic h3,
+    .readable-scope-root.font-dyslexic h4, .readable-scope-root.font-dyslexic h5, .readable-scope-root.font-dyslexic h6,
+    .readable-scope-root.font-dyslexic li, .readable-scope-root.font-dyslexic a, .readable-scope-root.font-dyslexic button,
+    .readable-scope-root.font-dyslexic input, .readable-scope-root.font-dyslexic textarea, .readable-scope-root.font-dyslexic label {
       font-family: 'OpenDyslexic', sans-serif !important;
     }
 
@@ -92,50 +96,57 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       line-height: normal !important;
     }
 
-    body.high-contrast img, body.high-contrast svg, body.high-contrast canvas {
+    .readable-scope-root.high-contrast:is(img, svg, canvas),
+    .readable-scope-root.high-contrast img, .readable-scope-root.high-contrast svg, .readable-scope-root.high-contrast canvas {
       filter: none !important; 
       background: none !important;
       fill: white; stroke: white;
     }
 
-    body.high-contrast, body.high-contrast html, body.high-contrast main, 
-    body.high-contrast header, body.high-contrast footer, body.high-contrast section, 
-    body.high-contrast article, body.high-contrast nav, body.high-contrast aside, 
-    body.high-contrast div, body.high-contrast button {
+    .readable-scope-root.high-contrast,
+    .readable-scope-root.high-contrast:is(main, header, footer, section, article, nav, aside, div, button),
+    .readable-scope-root.high-contrast main, 
+    .readable-scope-root.high-contrast header, .readable-scope-root.high-contrast footer, .readable-scope-root.high-contrast section, 
+    .readable-scope-root.high-contrast article, .readable-scope-root.high-contrast nav, .readable-scope-root.high-contrast aside, 
+    .readable-scope-root.high-contrast div, .readable-scope-root.high-contrast button {
       background-color: black !important;
     }
 
-    body.high-contrast p, body.high-contrast span, body.high-contrast h1, 
-    body.high-contrast h2, body.high-contrast h3, body.high-contrast h4, 
-    body.high-contrast h5, body.high-contrast h6, body.high-contrast li, 
-    body.high-contrast a, body.high-contrast button, body.high-contrast input, 
-    body.high-contrast textarea, body.high-contrast label {
+    .readable-scope-root.high-contrast:is(p, span, h1, h2, h3, h4, h5, h6, li, a, button, input, textarea, label),
+    .readable-scope-root.high-contrast p, .readable-scope-root.high-contrast span, .readable-scope-root.high-contrast h1, 
+    .readable-scope-root.high-contrast h2, .readable-scope-root.high-contrast h3, .readable-scope-root.high-contrast h4, 
+    .readable-scope-root.high-contrast h5, .readable-scope-root.high-contrast h6, .readable-scope-root.high-contrast li, 
+    .readable-scope-root.high-contrast a, .readable-scope-root.high-contrast button, .readable-scope-root.high-contrast input, 
+    .readable-scope-root.high-contrast textarea, .readable-scope-root.high-contrast label {
       color: white !important;
     }
 
-    body.high-contrast a, body.high-contrast a * {
+    .readable-scope-root.high-contrast:is(a),
+    .readable-scope-root.high-contrast a,
+    .readable-scope-root.high-contrast a * {
       color: #fffe00 !important;
       background-color: black !important;
       text-decoration: underline;
     }
 
-    body.high-contrast :disabled, body.high-contrast [disabled], body.high-contrast .disabled {
+    .readable-scope-root.high-contrast :disabled, .readable-scope-root.high-contrast [disabled], .readable-scope-root.high-contrast .disabled {
       color: #3ef240 !important;
     }
 
-    body.high-contrast ::selection {
+    .readable-scope-root.high-contrast ::selection {
       background-color: #19ebfe !important;
       color: black !important;
     }
 
-    body.high-contrast button, body.high-contrast input[type="button"], 
-    body.high-contrast input[type="submit"] {
+    .readable-scope-root.high-contrast:is(button, input[type="button"], input[type="submit"]),
+    .readable-scope-root.high-contrast button, .readable-scope-root.high-contrast input[type="button"], 
+    .readable-scope-root.high-contrast input[type="submit"] {
       background-color: black !important;
       color: white !important;
       border: 1px solid #19ebfe !important;
     }
 
-    body.high-contrast *:focus {
+    .readable-scope-root.high-contrast *:focus {
       outline: 2px solid #19ebfe !important;
       outline-offset: 2px !important;
     }
@@ -349,18 +360,40 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     document.documentElement.style.setProperty("--readable-aid-color", state.readingAidColor);
   }
 
-  function applySettings() {
-    document.body.classList.toggle("font-dyslexic", state.isDyslexia);
-    document.body.classList.toggle("high-contrast", state.isContrast);
-    document.body.classList.toggle("readable-letter-spacing", state.letterSpacing !== 0);
-    document.body.classList.toggle("readable-line-spacing", state.lineSpacing !== 1.5);
+  function updateScopedClasses() {
+    scopedClassRoots.forEach((root) => {
+      root.classList.remove(
+        "readable-scope-root",
+        "font-dyslexic",
+        "high-contrast",
+        "readable-letter-spacing",
+        "readable-line-spacing"
+      );
+    });
+    scopedClassRoots.clear();
 
+    const scopeRoots = getScopeRoots().filter(
+      (root) => root && document.contains(root) && (root === document.body || !shouldExcludeElement(root))
+    );
+
+    scopeRoots.forEach((root) => {
+      root.classList.add("readable-scope-root");
+      root.classList.toggle("font-dyslexic", state.isDyslexia);
+      root.classList.toggle("high-contrast", state.isContrast);
+      root.classList.toggle("readable-letter-spacing", state.letterSpacing !== 0);
+      root.classList.toggle("readable-line-spacing", state.lineSpacing !== 1.5);
+      scopedClassRoots.add(root);
+    });
+  }
+
+  function applySettings() {
     document.documentElement.style.setProperty("--a11y-letter-spacing", `${state.letterSpacing}em`);
     document.documentElement.style.setProperty(
       "--a11y-line-height",
       state.lineSpacing === 1.5 ? "normal" : state.lineSpacing
     );
 
+    updateScopedClasses();
     applyFontScale();
     applyReadingAid();
   }
@@ -388,7 +421,14 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     }
   }
 
+  function handleSelectionChange() {
+    if (state.scope === "selection") {
+      scheduleApplySettings();
+    }
+  }
+
   window.addEventListener("mousemove", handlePointerMove, { passive: true });
+  document.addEventListener("selectionchange", handleSelectionChange);
 
   const observer = new MutationObserver((mutations) => {
     if (state.fontSize === 1) return;
