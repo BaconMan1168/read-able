@@ -103,24 +103,18 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       line-height: normal !important;
     }
 
-    body.high-contrast img, body.high-contrast svg, body.high-contrast canvas {
-      filter: none !important; 
-      background: none !important;
-      fill: white; stroke: white;
-    }
-
-    body.high-contrast, body.high-contrast html, body.high-contrast main, 
-    body.high-contrast header, body.high-contrast footer, body.high-contrast section, 
-    body.high-contrast article, body.high-contrast nav, body.high-contrast aside, 
-    body.high-contrast div, body.high-contrast button {
+    body.high-contrast {
       background-color: black !important;
+      color: white !important;
+      color-scheme: dark;
     }
 
-    body.high-contrast p, body.high-contrast span, body.high-contrast h1, 
-    body.high-contrast h2, body.high-contrast h3, body.high-contrast h4, 
-    body.high-contrast h5, body.high-contrast h6, body.high-contrast li, 
-    body.high-contrast a, body.high-contrast button, body.high-contrast input, 
-    body.high-contrast textarea, body.high-contrast label {
+    body.high-contrast :is(main, header, footer, section, article, nav, aside, form, dialog, [role="dialog"], [role="main"]) {
+      background-color: black !important;
+      color: white !important;
+    }
+
+    body.high-contrast :is(p, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption, caption, label, legend, summary, dt, dd) {
       color: white !important;
     }
 
@@ -139,8 +133,14 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       color: black !important;
     }
 
-    body.high-contrast button, body.high-contrast input[type="button"], 
-    body.high-contrast input[type="submit"] {
+    body.high-contrast :is(input, textarea, select) {
+      background-color: black !important;
+      color: white !important;
+      border-color: #19ebfe !important;
+    }
+
+    body.high-contrast button, body.high-contrast [role="button"],
+    body.high-contrast input[type="button"], body.high-contrast input[type="submit"] {
       background-color: black !important;
       color: white !important;
       border: 1px solid #19ebfe !important;
@@ -316,6 +316,16 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     return hasVisibleDirectText(el) && !hasBlockChildren(el);
   }
 
+  function addScalableElement(el, elements) {
+    if (!shouldExcludeElement(el) && isScalableTextElement(el)) {
+      elements.add(el);
+    }
+
+    if (el.shadowRoot) {
+      collectScalableElements(el.shadowRoot, elements);
+    }
+  }
+
   function shouldExcludeElement(el) {
     if (!el.matches) return true;
 
@@ -336,20 +346,18 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
   }
 
   function collectScalableElements(root, elements) {
-    root.querySelectorAll("*").forEach((el) => {
-      if (!shouldExcludeElement(el) && isScalableTextElement(el)) {
-        elements.add(el);
-      }
+    if (root.nodeType === Node.ELEMENT_NODE) {
+      addScalableElement(root, elements);
+    }
 
-      if (el.shadowRoot) {
-        collectScalableElements(el.shadowRoot, elements);
-      }
+    root.querySelectorAll("*").forEach((el) => {
+      addScalableElement(el, elements);
     });
   }
 
-  function getScalableElements() {
+  function getScalableElements(root = document.body) {
     const elements = new Set();
-    collectScalableElements(document.body, elements);
+    collectScalableElements(root, elements);
 
     return elements;
   }
@@ -374,6 +382,10 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     el.style.fontSize = original.inlineFontSize;
   }
 
+  function scaleFontSize(el, original) {
+    el.style.fontSize = `${original.baseSize * state.fontSize}px`;
+  }
+
   function pruneOriginalFontSizes() {
     originalFontSizes.forEach((_, el) => {
       if (!el.isConnected) {
@@ -382,19 +394,39 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     });
   }
 
+  function applyFontScaleToElements(elements) {
+    elements.forEach(cacheOriginalFontSize);
+    elements.forEach((el) => {
+      const original = originalFontSizes.get(el);
+      if (original) {
+        scaleFontSize(el, original);
+      }
+    });
+  }
+
   function applyFontScale() {
     const scopedElements = getScalableElements();
     pruneOriginalFontSizes();
-
-    scopedElements.forEach(cacheOriginalFontSize);
 
     originalFontSizes.forEach((original, el) => {
       if (state.fontSize === 1 || !scopedElements.has(el)) {
         restoreFontSize(el, original);
       } else {
-        el.style.fontSize = `${original.baseSize * state.fontSize}px`;
+        scaleFontSize(el, original);
       }
     });
+
+    if (state.fontSize !== 1) {
+      applyFontScaleToElements(scopedElements);
+    }
+  }
+
+  function applyFontScaleToAddedElements(addedElements) {
+    if (state.fontSize === 1) return;
+
+    const scopedElements = new Set();
+    addedElements.forEach((el) => collectScalableElements(el, scopedElements));
+    applyFontScaleToElements(scopedElements);
   }
 
   function applyReadingAid() {
@@ -453,14 +485,29 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
   }
 
   const observer = new MutationObserver((mutations) => {
-    if (state.fontSize === 1) return;
+    let hasRemovedElements = false;
+    const addedElements = [];
 
-    const hasAddedElements = mutations.some((mutation) =>
-      Array.from(mutation.addedNodes).some((node) => node.nodeType === Node.ELEMENT_NODE)
-    );
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          addedElements.push(node);
+        }
+      });
 
-    if (hasAddedElements) {
-      scheduleApplySettings();
+      if (!hasRemovedElements) {
+        hasRemovedElements = Array.from(mutation.removedNodes).some(
+          (node) => node.nodeType === Node.ELEMENT_NODE
+        );
+      }
+    });
+
+    if (hasRemovedElements) {
+      pruneOriginalFontSizes();
+    }
+
+    if (addedElements.length > 0) {
+      applyFontScaleToAddedElements(addedElements);
     }
   });
 
