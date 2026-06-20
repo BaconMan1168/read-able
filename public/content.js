@@ -83,6 +83,17 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       font-family: 'OpenDyslexic', sans-serif !important;
     }
 
+    body.font-dyslexic :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
+    body.font-dyslexic :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor) *,
+    body.readable-letter-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
+    body.readable-letter-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor) *,
+    body.readable-line-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
+    body.readable-line-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor) * {
+      font-family: revert !important;
+      letter-spacing: revert !important;
+      line-height: revert !important;
+    }
+
     body canvas,
     body svg,
     body [role="img"],
@@ -196,12 +207,28 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     "video",
     "audio",
     "iframe",
+    "input",
+    "textarea",
+    "select",
+    "button",
+    "pre",
+    "code",
+    "kbd",
+    "samp",
     "object",
     "embed",
     "[hidden]",
     "[aria-hidden='true']",
     "[role='img']",
+    "[role='button']",
+    "[role='textbox']",
+    "[contenteditable]",
     "[data-no-scale]",
+    ".CodeMirror",
+    ".monaco-editor",
+    ".cm-editor",
+    ".ProseMirror",
+    ".ql-editor",
     ".material-icons",
     ".material-symbols-outlined",
     ".material-symbols-rounded",
@@ -215,6 +242,79 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     ".fad",
     ".lucide",
   ];
+  const EXCLUDED_SELECTOR = EXCLUDED_SELECTORS.join(",");
+  const TEXT_SCALE_SELECTORS = [
+    "p",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "li",
+    "td",
+    "th",
+    "blockquote",
+    "figcaption",
+    "caption",
+    "label",
+    "legend",
+    "summary",
+    "dt",
+    "dd",
+    "a",
+    "span",
+  ].join(",");
+  const BLOCK_CHILD_SELECTORS = [
+    "address",
+    "article",
+    "aside",
+    "blockquote",
+    "details",
+    "dialog",
+    "div",
+    "dl",
+    "fieldset",
+    "figcaption",
+    "figure",
+    "footer",
+    "form",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "header",
+    "hr",
+    "li",
+    "main",
+    "nav",
+    "ol",
+    "p",
+    "pre",
+    "section",
+    "table",
+    "ul",
+  ].join(",");
+
+  function hasVisibleDirectText(el) {
+    return Array.from(el.childNodes).some(
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== ""
+    );
+  }
+
+  function hasBlockChildren(el) {
+    return Array.from(el.children).some((child) => child.matches?.(BLOCK_CHILD_SELECTORS));
+  }
+
+  function isScalableTextElement(el) {
+    if (el.matches(TEXT_SCALE_SELECTORS)) {
+      return true;
+    }
+
+    return hasVisibleDirectText(el) && !hasBlockChildren(el);
+  }
 
   function shouldExcludeElement(el) {
     if (!el.matches) return true;
@@ -228,23 +328,28 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       return true;
     }
 
-    return EXCLUDED_SELECTORS.some((selector) => {
-      try {
-        return el.matches(selector);
-      } catch {
-        return false;
+    try {
+      return Boolean(el.closest(EXCLUDED_SELECTOR));
+    } catch {
+      return true;
+    }
+  }
+
+  function collectScalableElements(root, elements) {
+    root.querySelectorAll("*").forEach((el) => {
+      if (!shouldExcludeElement(el) && isScalableTextElement(el)) {
+        elements.add(el);
+      }
+
+      if (el.shadowRoot) {
+        collectScalableElements(el.shadowRoot, elements);
       }
     });
   }
 
   function getScalableElements() {
     const elements = new Set();
-
-    document.body.querySelectorAll("*").forEach((el) => {
-      if (!shouldExcludeElement(el)) {
-        elements.add(el);
-      }
-    });
+    collectScalableElements(document.body, elements);
 
     return elements;
   }
@@ -271,7 +376,7 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
 
   function pruneOriginalFontSizes() {
     originalFontSizes.forEach((_, el) => {
-      if (!document.contains(el)) {
+      if (!el.isConnected) {
         originalFontSizes.delete(el);
       }
     });
