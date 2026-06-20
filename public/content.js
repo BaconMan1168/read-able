@@ -19,6 +19,7 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
 
   const state = { ...DEFAULT_STATE };
   const originalFontSizes = new Map();
+  const isTopFrame = window.top === window;
   let applyFrame = null;
   let pointerY = Math.round(window.innerHeight / 2);
 
@@ -179,10 +180,12 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
 
   document.head.appendChild(styleElement);
 
-  const overlayElement = document.createElement("div");
-  overlayElement.className = "readable-reading-aid";
-  overlayElement.dataset.mode = "none";
-  document.documentElement.appendChild(overlayElement);
+  const overlayElement = isTopFrame ? document.createElement("div") : null;
+  if (overlayElement) {
+    overlayElement.className = "readable-reading-aid";
+    overlayElement.dataset.mode = "none";
+    document.documentElement.appendChild(overlayElement);
+  }
 
   const EXCLUDED_SELECTORS = [
     "canvas",
@@ -290,6 +293,8 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
   }
 
   function applyReadingAid() {
+    if (!overlayElement) return;
+
     const mode = state.readingAid === "ruler" || state.readingAid === "focus" ? state.readingAid : "none";
 
     overlayElement.dataset.mode = mode;
@@ -338,7 +343,9 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     }
   }
 
-  window.addEventListener("mousemove", handlePointerMove, { passive: true });
+  if (isTopFrame) {
+    window.addEventListener("mousemove", handlePointerMove, { passive: true });
+  }
 
   const observer = new MutationObserver((mutations) => {
     if (state.fontSize === 1) return;
