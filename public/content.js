@@ -121,21 +121,25 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
         font-family: 'OpenDyslexic';
         src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Regular.woff2")}') format('woff2');
         font-weight: normal; font-style: normal;
+        size-adjust: 93%;
       }
       @font-face {
         font-family: 'OpenDyslexic';
         src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Bold.woff2")}') format('woff2');
         font-weight: bold; font-style: normal;
+        size-adjust: 93%;
       }
       @font-face {
         font-family: 'OpenDyslexic';
         src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Italic.woff2")}') format('woff2');
         font-weight: normal; font-style: italic;
+        size-adjust: 93%;
       }
       @font-face {
         font-family: 'OpenDyslexic';
         src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Bold-Italic.woff2")}') format('woff2');
         font-weight: bold; font-style: italic;
+        size-adjust: 93%;
       }
 
       :root {
@@ -170,6 +174,8 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       body.font-dyslexic li, body.font-dyslexic a, body.font-dyslexic button,
       body.font-dyslexic input, body.font-dyslexic textarea, body.font-dyslexic label {
         font-family: 'OpenDyslexic', sans-serif !important;
+        overflow-wrap: break-word;
+        word-break: normal;
       }
 
       body.font-dyslexic :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
