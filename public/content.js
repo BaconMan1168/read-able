@@ -527,7 +527,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     return elements;
   }
 
-  function cacheOriginalFontSize(el) {
+  function cacheOriginalFontSize(el, computedSizeIsScaled = false) {
     if (originalFontSizes.has(el)) return;
 
     const style = window.getComputedStyle(el);
@@ -536,7 +536,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     const computedSize = parseFloat(style.fontSize);
     if (Number.isNaN(computedSize) || computedSize <= 0) return;
 
-    const baseSize = state.fontSize === 1 ? computedSize : computedSize / state.fontSize;
+    const baseSize = computedSizeIsScaled ? computedSize / state.fontSize : computedSize;
     originalFontSizes.set(el, {
       baseSize,
       inlineFontSize: el.style.fontSize,
@@ -567,8 +567,8 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     });
   }
 
-  function applyFontScaleToElements(elements) {
-    elements.forEach(cacheOriginalFontSize);
+  function applyFontScaleToElements(elements, { computedSizeIsScaled = false } = {}) {
+    elements.forEach((el) => cacheOriginalFontSize(el, computedSizeIsScaled));
     elements.forEach((el) => {
       const original = originalFontSizes.get(el);
       if (original) {
@@ -600,7 +600,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
 
     const scopedElements = new Set();
     addedElements.forEach((el) => collectScalableElements(el, scopedElements));
-    applyFontScaleToElements(scopedElements);
+    applyFontScaleToElements(scopedElements, { computedSizeIsScaled: true });
   }
 
   function resetPendingFontScaleMutations() {
