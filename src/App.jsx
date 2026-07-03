@@ -14,6 +14,33 @@ const DEFAULT_SETTINGS = {
 };
 
 const SUPPORTED_PROTOCOLS = ['http:', 'https:', 'file:'];
+const PAUSED_SITE_RULES = [
+  { host: 'docs.google.com' },
+  { host: 'drive.google.com' },
+  { host: 'mail.google.com' },
+  { host: 'calendar.google.com' },
+  { host: 'keep.google.com' },
+  { host: 'meet.google.com' },
+  { host: 'chat.google.com' },
+  { host: 'classroom.google.com' },
+  { host: 'notion.so' },
+  { host: 'figma.com' },
+  { host: 'canva.com' },
+  { host: 'overleaf.com' },
+  { host: 'codepen.io' },
+  { host: 'codesandbox.io' },
+  { host: 'stackblitz.com' },
+  { host: 'replit.com' },
+  { host: 'glitch.com' },
+  { host: 'jsfiddle.net' },
+  { host: 'github.dev' },
+  { host: 'vscode.dev' },
+  { host: 'office.com' },
+  { host: 'microsoft365.com' },
+  { host: 'officeapps.live.com' },
+  { host: 'sharepoint.com' },
+  { host: 'onedrive.live.com' },
+];
 
 function isSupportedTabUrl(tabUrl) {
   if (!tabUrl) return false;
@@ -26,12 +53,33 @@ function isSupportedTabUrl(tabUrl) {
   }
 }
 
+function hostMatches(hostname, ruleHost) {
+  return hostname === ruleHost || hostname.endsWith(`.${ruleHost}`);
+}
+
+function isPausedTabUrl(tabUrl) {
+  if (!tabUrl) return false;
+
+  try {
+    const url = new URL(tabUrl);
+    const hostname = url.hostname.toLowerCase();
+    return PAUSED_SITE_RULES.some((rule) => hostMatches(hostname, rule.host));
+  } catch {
+    return false;
+  }
+}
+
+function isDisabledDomain(hostname, disabledSites) {
+  return disabledSites.some((site) => hostMatches(hostname, site.toLowerCase()));
+}
+
 function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [isSiteDisabled, setIsSiteDisabled] = useState(false);
   const [currentDomain, setCurrentDomain] = useState('');
   const [activeTabId, setActiveTabId] = useState(null);
   const [isUnsupportedPage, setIsUnsupportedPage] = useState(false);
+  const [isPausedSite, setIsPausedSite] = useState(false);
   const [messageError, setMessageError] = useState('');
   const saveTimer = useRef(null);
 
@@ -51,6 +99,7 @@ function App() {
       const domain = url.hostname;
       setActiveTabId(tab.id);
       setCurrentDomain(domain);
+      setIsPausedSite(isPausedTabUrl(tab.url));
 
       chrome.storage.sync.get(
         {
@@ -60,7 +109,7 @@ function App() {
         (result) => {
           const { disabledSites, ...storedSettings } = result;
           setSettings(storedSettings);
-          setIsSiteDisabled(disabledSites.includes(domain));
+          setIsSiteDisabled(isDisabledDomain(domain, disabledSites));
         }
       );
     });
@@ -83,23 +132,47 @@ function App() {
   };
 
   const sendSettingsToTab = (nextSettings) => {
-    if (!activeTabId || isUnsupportedPage || isSiteDisabled) return;
+    if (activeTabId === null || isUnsupportedPage || isSiteDisabled || isPausedSite) return;
 
-    chrome.tabs.sendMessage(
-      activeTabId,
-      {
-        action: 'updateSettings',
-        settings: nextSettings,
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          setMessageError('Reload this page to apply ReadAble here.');
-          return;
+    const message = {
+      action: 'updateSettings',
+      settings: nextSettings,
+    };
+
+    const sendMessage = (allowInject) => {
+      chrome.tabs.sendMessage(
+        activeTabId,
+        message,
+        () => {
+          if (!chrome.runtime.lastError) {
+            setMessageError('');
+            return;
+          }
+
+          if (!allowInject) {
+            setMessageError('ReadAble could not run on this page.');
+            return;
+          }
+
+          chrome.scripting.executeScript(
+            {
+              target: { tabId: activeTabId },
+              files: ['content.js'],
+            },
+            () => {
+              if (chrome.runtime.lastError) {
+                setMessageError('ReadAble could not run on this page.');
+                return;
+              }
+
+              sendMessage(false);
+            }
+          );
         }
+      );
+    };
 
-        setMessageError('');
-      }
-    );
+    sendMessage(true);
   };
 
   const updateSettings = (partialSettings) => {
@@ -122,7 +195,7 @@ function App() {
 
       chrome.storage.sync.set({ disabledSites: list }, () => {
         setIsSiteDisabled(checked);
-        if (activeTabId) {
+        if (activeTabId !== null) {
           chrome.tabs.reload(activeTabId);
         }
       });
@@ -135,7 +208,7 @@ function App() {
     sendSettingsToTab(DEFAULT_SETTINGS);
   };
 
-  const controlsDisabled = isUnsupportedPage || isSiteDisabled;
+  const controlsDisabled = isUnsupportedPage || isSiteDisabled || isPausedSite;
   const fontScaleMax = settings.isDyslexia ? 1.35 : 2;
   const letterSpacingMax = settings.isDyslexia ? 0.4 : 0.5;
 
@@ -151,6 +224,11 @@ function App() {
             ReadAble cannot run on this page.
           </p>
         )}
+        {isPausedSite && (
+          <p className="status-message">
+            ReadAble is paused on editors and web apps to avoid breaking them.
+          </p>
+        )}
         {messageError && (
           <p className="status-message">
             {messageError}
@@ -164,10 +242,10 @@ function App() {
               <input
                 id="siteToggle"
                 type="checkbox"
-                checked={isSiteDisabled}
-                disabled={isUnsupportedPage || !currentDomain}
+                checked={isSiteDisabled || isPausedSite}
+                disabled={isUnsupportedPage || isPausedSite || !currentDomain}
                 onChange={(e) => toggleSiteDisable(e.target.checked)}
-                aria-checked={isSiteDisabled}
+                aria-checked={isSiteDisabled || isPausedSite}
                 aria-labelledby="siteToggleLabel"
               />
               <span className="slider round" role="presentation"></span>

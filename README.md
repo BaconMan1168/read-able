@@ -39,4 +39,4 @@ The package script builds `dist`, removes unused font sources/formats and local 
 
 When code, manifest, or packaged assets change, upload a new zip in the Chrome Web Store Developer Dashboard. The manifest version must be higher than the currently published version.
 
-This extension currently uses the existing `activeTab` and `storage` permissions. Adding new permissions later can change the user-facing permission prompt during updates.
+This extension currently uses the `activeTab`, `scripting`, and `storage` permissions. Adding new permissions later can change the user-facing permission prompt during updates.
