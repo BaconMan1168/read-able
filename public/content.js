@@ -219,6 +219,32 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
         text-decoration: underline;
       }
 
+      body.high-contrast svg {
+        color: inherit !important;
+      }
+
+      body.high-contrast svg :is(path, circle, rect, polygon, ellipse, text, tspan, use):not([fill="none" i]) {
+        fill: currentColor !important;
+      }
+
+      body.high-contrast svg :is(g, path, circle, rect, line, polyline, polygon, ellipse, text, tspan, use)[stroke]:not([stroke="none" i]) {
+        stroke: currentColor !important;
+      }
+
+      body.high-contrast svg[fill="none" i],
+      body.high-contrast svg [fill="none" i],
+      body.high-contrast svg[fill="none" i] *,
+      body.high-contrast svg [fill="none" i] * {
+        fill: none !important;
+      }
+
+      body.high-contrast svg[stroke="none" i],
+      body.high-contrast svg [stroke="none" i],
+      body.high-contrast svg[stroke="none" i] *,
+      body.high-contrast svg [stroke="none" i] * {
+        stroke: none !important;
+      }
+
       body.high-contrast :disabled, body.high-contrast [disabled], body.high-contrast .disabled {
         color: #3ef240 !important;
       }
