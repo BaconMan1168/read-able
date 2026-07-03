@@ -146,8 +146,14 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
         --readable-aid-color: #ffe066;
       }
 
-      body.readable-letter-spacing :is(p, li, td, th, blockquote, figcaption, caption, label, legend, summary, dt, dd),
-      body.readable-letter-spacing :is(p, li, td, th, blockquote, figcaption, caption, label, legend, summary, dt, dd) :is(a, span, strong, em, b, i, small, mark, cite, q) {
+      body.readable-letter-spacing p,
+      body.readable-letter-spacing span:not([role="button"]):not(.material-icons):not(.material-symbols-outlined):not(.material-symbols-rounded):not(.material-symbols-sharp):not(.icon),
+      body.readable-letter-spacing h1, body.readable-letter-spacing h2, body.readable-letter-spacing h3,
+      body.readable-letter-spacing h4, body.readable-letter-spacing h5, body.readable-letter-spacing h6,
+      body.readable-letter-spacing li,
+      body.readable-letter-spacing td, body.readable-letter-spacing th,
+      body.readable-letter-spacing label,
+      body.readable-letter-spacing a:not([role="button"]) {
         letter-spacing: var(--a11y-letter-spacing) !important;
       }
 
@@ -158,8 +164,11 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
         line-height: var(--a11y-line-height) !important;
       }
 
-      body.font-dyslexic :is(p, li, td, th, blockquote, figcaption, caption, label, legend, summary, dt, dd),
-      body.font-dyslexic :is(p, li, td, th, blockquote, figcaption, caption, label, legend, summary, dt, dd) :is(a, span, strong, em, b, i, small, mark, cite, q) {
+      body.font-dyslexic p, body.font-dyslexic span,
+      body.font-dyslexic h1, body.font-dyslexic h2, body.font-dyslexic h3,
+      body.font-dyslexic h4, body.font-dyslexic h5, body.font-dyslexic h6,
+      body.font-dyslexic li, body.font-dyslexic a, body.font-dyslexic button,
+      body.font-dyslexic input, body.font-dyslexic textarea, body.font-dyslexic label {
         font-family: 'OpenDyslexic', sans-serif !important;
       }
 
