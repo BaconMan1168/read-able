@@ -118,12 +118,12 @@ main {
 }
 
 input:checked + .slider {
-  border-color: #2f7158;
-  background-color: #367b60;
+  border-color: #2196f3;
+  background-color: #2196f3;
 }
 
 .switch input:focus + .slider {
-  box-shadow: 0 0 0 3px rgba(54, 123, 96, 0.24);
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.32);
 }
 
 input:checked + .slider:before {
@@ -156,7 +156,7 @@ input:checked + .slider:before {
   border: 2px solid #ffffff;
   border-radius: 50%;
   appearance: none;
-  background: #367b60;
+  background: #2196f3;
   box-shadow: 0 1px 3px rgba(32, 33, 29, 0.28);
   cursor: pointer;
 }
@@ -166,13 +166,13 @@ input:checked + .slider:before {
   height: 18px;
   border: 2px solid #ffffff;
   border-radius: 50%;
-  background: #367b60;
+  background: #2196f3;
   box-shadow: 0 1px 3px rgba(32, 33, 29, 0.28);
   cursor: pointer;
 }
 
 .range-slider:focus {
-  outline: 3px solid rgba(54, 123, 96, 0.26);
+  outline: 3px solid rgba(33, 150, 243, 0.32);
   outline-offset: 4px;
 }
 
@@ -219,8 +219,8 @@ input:checked + .slider:before {
 }
 
 .reset-button:hover:not(:disabled) {
-  border-color: #8d9f91;
-  background: #f6fbf3;
+  border-color: #b8c4d4;
+  background: #eef6ff;
 }
 
 .reset-button:active:not(:disabled) {

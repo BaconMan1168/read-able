@@ -98,6 +98,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   const originalFontSizes = new Map();
   const isTopFrame = window.top === window;
   let applyFrame = null;
+  let pointerFrame = null;
   let pointerY = Math.round(window.innerHeight / 2);
   let isInitialized = false;
   let isPointerListenerAttached = false;
@@ -250,28 +251,38 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
         display: block;
       }
 
-      .readable-reading-aid[data-mode="ruler"]::before {
+      .readable-reading-aid::before,
+      .readable-reading-aid::after {
         content: "";
         position: absolute;
         left: 0;
         right: 0;
-        top: calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2));
-        height: var(--readable-aid-height);
+        display: none;
         background: var(--readable-aid-color);
         opacity: var(--readable-aid-opacity);
       }
 
-      .readable-reading-aid[data-mode="focus"] {
-        background:
-          linear-gradient(
-            to bottom,
-            rgba(0, 0, 0, var(--readable-aid-opacity)) 0,
-            rgba(0, 0, 0, var(--readable-aid-opacity)) calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2)),
-            transparent calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2)),
-            transparent calc(var(--readable-ruler-y) + (var(--readable-aid-height) / 2)),
-            rgba(0, 0, 0, var(--readable-aid-opacity)) calc(var(--readable-ruler-y) + (var(--readable-aid-height) / 2)),
-            rgba(0, 0, 0, var(--readable-aid-opacity)) 100%
-          );
+      .readable-reading-aid[data-mode="ruler"]::before {
+        display: block;
+        top: calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2));
+        height: var(--readable-aid-height);
+        will-change: transform;
+      }
+
+      .readable-reading-aid[data-mode="focus"]::before,
+      .readable-reading-aid[data-mode="focus"]::after {
+        display: block;
+        background: rgba(0, 0, 0, var(--readable-aid-opacity));
+      }
+
+      .readable-reading-aid[data-mode="focus"]::before {
+        top: 0;
+        height: max(0px, calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2)));
+      }
+
+      .readable-reading-aid[data-mode="focus"]::after {
+        top: calc(var(--readable-ruler-y) + (var(--readable-aid-height) / 2));
+        bottom: 0;
       }
     `;
 
@@ -282,11 +293,6 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       overlayElement.className = "readable-reading-aid";
       overlayElement.dataset.mode = "none";
       document.documentElement.appendChild(overlayElement);
-    }
-
-    if (isTopFrame && !isPointerListenerAttached) {
-      window.addEventListener("mousemove", handlePointerMove, { passive: true });
-      isPointerListenerAttached = true;
     }
 
     observer = new MutationObserver((mutations) => {
@@ -556,10 +562,39 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     const mode = state.readingAid === "ruler" || state.readingAid === "focus" ? state.readingAid : "none";
 
     overlayElement.dataset.mode = mode;
-    document.documentElement.style.setProperty("--readable-ruler-y", `${pointerY}px`);
+    updateReadingAidPosition();
     document.documentElement.style.setProperty("--readable-aid-height", `${state.readingAidHeight}px`);
     document.documentElement.style.setProperty("--readable-aid-opacity", state.readingAidOpacity);
     document.documentElement.style.setProperty("--readable-aid-color", state.readingAidColor);
+  }
+
+  function updateReadingAidPosition() {
+    document.documentElement.style.setProperty("--readable-ruler-y", `${pointerY}px`);
+  }
+
+  function scheduleReadingAidPosition() {
+    if (pointerFrame !== null) return;
+
+    pointerFrame = requestAnimationFrame(() => {
+      pointerFrame = null;
+      updateReadingAidPosition();
+    });
+  }
+
+  function syncPointerListener() {
+    if (!isTopFrame) return;
+
+    const shouldAttach = state.readingAid === "ruler" || state.readingAid === "focus";
+
+    if (shouldAttach && !isPointerListenerAttached) {
+      window.addEventListener("mousemove", handlePointerMove, { passive: true });
+      isPointerListenerAttached = true;
+    }
+
+    if (!shouldAttach && isPointerListenerAttached) {
+      window.removeEventListener("mousemove", handlePointerMove);
+      isPointerListenerAttached = false;
+    }
   }
 
   function syncObserver() {
@@ -594,6 +629,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
 
     applyFontScale();
     applyReadingAid();
+    syncPointerListener();
     syncObserver();
   }
 
@@ -620,7 +656,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   function handlePointerMove(event) {
     pointerY = event.clientY;
     if (state.readingAid !== "none") {
-      applyReadingAid();
+      scheduleReadingAidPosition();
     }
   }
 
