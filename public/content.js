@@ -98,10 +98,14 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   const pendingChangedKeys = new Set();
   const originalFontSizes = new Map();
   const isTopFrame = window.top === window;
+  const TEXT_ADJUSTMENT_KEYS = ["fontSize", "letterSpacing", "lineSpacing"];
+  const TEXT_ADJUSTMENT_TRANSITION_MS = 140;
   let applyFrame = null;
   let observerFrame = null;
   let pointerFrame = null;
+  let textAdjustmentTimer = null;
   let pointerY = Math.round(window.innerHeight / 2);
+  let shouldSmoothTextAdjustment = false;
   let hasPendingRemovedElements = false;
   let isFontScaleCachePrimed = false;
   let isInitialized = false;
@@ -181,6 +185,13 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
         font-family: 'OpenDyslexic', sans-serif !important;
         overflow-wrap: break-word;
         word-break: normal;
+      }
+
+      body.readable-text-adjusting :is(p, span, h1, h2, h3, h4, h5, h6, li, a, label, td, th, blockquote, figcaption, caption, legend, summary, dt, dd) {
+        transition:
+          font-size 100ms ease-out,
+          line-height 100ms ease-out,
+          letter-spacing 100ms ease-out;
       }
 
       body.font-dyslexic :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
@@ -714,7 +725,24 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     return keys.some((key) => changedKeys.has(key));
   }
 
-  function applySettings(changedKeys) {
+  function scheduleTextAdjustmentTransition() {
+    document.body.classList.add("readable-text-adjusting");
+
+    if (textAdjustmentTimer !== null) {
+      clearTimeout(textAdjustmentTimer);
+    }
+
+    textAdjustmentTimer = setTimeout(() => {
+      document.body.classList.remove("readable-text-adjusting");
+      textAdjustmentTimer = null;
+    }, TEXT_ADJUSTMENT_TRANSITION_MS);
+  }
+
+  function applySettings(changedKeys, { smoothText = false } = {}) {
+    if (smoothText && hasChangedKey(changedKeys, TEXT_ADJUSTMENT_KEYS)) {
+      scheduleTextAdjustmentTransition();
+    }
+
     if (changedKeys.has("isDyslexia")) {
       document.body.classList.toggle("font-dyslexic", state.isDyslexia);
     }
@@ -759,13 +787,16 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     applyFrame = requestAnimationFrame(() => {
       applyFrame = null;
       const changedKeys = new Set(pendingChangedKeys);
+      const smoothText = shouldSmoothTextAdjustment;
       pendingChangedKeys.clear();
-      applySettings(changedKeys);
+      shouldSmoothTextAdjustment = false;
+      applySettings(changedKeys, { smoothText });
     });
   }
 
-  function updateState(nextState) {
+  function updateState(nextState, { smoothText = false } = {}) {
     let hasChangedState = false;
+    let hasTextAdjustmentChange = false;
 
     Object.entries(nextState).forEach(([key, value]) => {
       if (Object.is(state[key], value)) return;
@@ -773,9 +804,14 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       state[key] = value;
       pendingChangedKeys.add(key);
       hasChangedState = true;
+
+      if (TEXT_ADJUSTMENT_KEYS.includes(key)) {
+        hasTextAdjustmentChange = true;
+      }
     });
 
     if (hasChangedState) {
+      shouldSmoothTextAdjustment = shouldSmoothTextAdjustment || (smoothText && hasTextAdjustmentChange);
       scheduleApplySettings();
     }
   }
@@ -796,7 +832,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.action === "updateSettings") {
-      updateState(message.settings);
+      updateState(message.settings, { smoothText: true });
       sendResponse({ ok: true });
       return;
     }
@@ -808,13 +844,13 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       updateState({ isContrast: message.enabled });
     }
     if (message.action === "adjustFontSize") {
-      updateState({ fontSize: message.fontSize });
+      updateState({ fontSize: message.fontSize }, { smoothText: true });
     }
     if (message.action === "adjustLetterSpacing") {
-      updateState({ letterSpacing: message.letterSpacing });
+      updateState({ letterSpacing: message.letterSpacing }, { smoothText: true });
     }
     if (message.action === "adjustLineSpacing") {
-      updateState({ lineSpacing: message.lineSpacing });
+      updateState({ lineSpacing: message.lineSpacing }, { smoothText: true });
     }
 
     sendResponse({ ok: true });
