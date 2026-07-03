@@ -1,201 +1,322 @@
-chrome.storage.sync.get({ disabledSites: [] }, (result) => {
-  const domain = window.location.hostname;
+const DEFAULT_STATE = {
+  isDyslexia: false,
+  isContrast: false,
+  fontSize: 1,
+  letterSpacing: 0,
+  lineSpacing: 1.5,
+  readingAid: "none",
+  readingAidHeight: 72,
+  readingAidOpacity: 0.24,
+  readingAidColor: "#ffe066",
+};
 
-  if (result.disabledSites.includes(domain)) {
-    return;
+const PAUSED_SITE_RULES = [
+  { host: "docs.google.com" },
+  { host: "drive.google.com" },
+  { host: "mail.google.com" },
+  { host: "calendar.google.com" },
+  { host: "keep.google.com" },
+  { host: "meet.google.com" },
+  { host: "chat.google.com" },
+  { host: "classroom.google.com" },
+  { host: "notion.so" },
+  { host: "figma.com" },
+  { host: "canva.com" },
+  { host: "overleaf.com" },
+  { host: "codepen.io" },
+  { host: "codesandbox.io" },
+  { host: "stackblitz.com" },
+  { host: "replit.com" },
+  { host: "glitch.com" },
+  { host: "jsfiddle.net" },
+  { host: "github.dev" },
+  { host: "vscode.dev" },
+  { host: "office.com" },
+  { host: "microsoft365.com" },
+  { host: "officeapps.live.com" },
+  { host: "sharepoint.com" },
+  { host: "onedrive.live.com" },
+];
+
+function getHostname(value) {
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function hostMatches(hostname, ruleHost) {
+  return hostname === ruleHost || hostname.endsWith(`.${ruleHost}`);
+}
+
+function locationMatchesRule(locationValue, rule) {
+  const hostname = getHostname(locationValue);
+  return Boolean(hostname) && hostMatches(hostname, rule.host);
+}
+
+function getFrameLocations() {
+  const locations = [window.location.href];
+
+  if (window.location.ancestorOrigins) {
+    locations.push(...Array.from(window.location.ancestorOrigins));
   }
 
-  const DEFAULT_STATE = {
-    isDyslexia: false,
-    isContrast: false,
-    fontSize: 1,
-    letterSpacing: 0,
-    lineSpacing: 1.5,
-    readingAid: "none",
-    readingAidHeight: 72,
-    readingAidOpacity: 0.24,
-    readingAidColor: "#ffe066",
-  };
+  return locations;
+}
+
+function isPausedSite() {
+  return getFrameLocations().some((locationValue) =>
+    PAUSED_SITE_RULES.some((rule) => locationMatchesRule(locationValue, rule))
+  );
+}
+
+function isUserDisabledSite(disabledSites) {
+  const disabledHosts = disabledSites.map((site) => site.toLowerCase());
+
+  return getFrameLocations().some((locationValue) => {
+    const hostname = getHostname(locationValue);
+    return disabledHosts.some((disabledHost) => hostMatches(hostname, disabledHost));
+  });
+}
+
+function hasActiveSettings(settings) {
+  return (
+    settings.isDyslexia ||
+    settings.isContrast ||
+    settings.fontSize !== 1 ||
+    settings.letterSpacing !== 0 ||
+    settings.lineSpacing !== 1.5 ||
+    settings.readingAid !== "none"
+  );
+}
+
+if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
+  globalThis.__readableContentScriptLoaded = true;
 
   const state = { ...DEFAULT_STATE };
   const originalFontSizes = new Map();
   const isTopFrame = window.top === window;
   let applyFrame = null;
   let pointerY = Math.round(window.innerHeight / 2);
+  let isInitialized = false;
+  let isPointerListenerAttached = false;
+  let isObserverAttached = false;
+  let styleElement = null;
+  let overlayElement = null;
+  let observer = null;
 
-  const styleElement = document.createElement("style");
-  styleElement.dataset.ext = "accessibility";
+  function ensureInitialized() {
+    if (isInitialized) return;
 
-  styleElement.textContent = `
-    @font-face {
-      font-family: 'OpenDyslexic';
-      src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Regular.woff2")}') format('woff2');
-      font-weight: normal; font-style: normal;
-    }
-    @font-face {
-      font-family: 'OpenDyslexic';
-      src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Bold.woff2")}') format('woff2');
-      font-weight: bold; font-style: normal;
-    }
-    @font-face {
-      font-family: 'OpenDyslexic';
-      src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Italic.woff2")}') format('woff2');
-      font-weight: normal; font-style: italic;
-    }
-    @font-face {
-      font-family: 'OpenDyslexic';
-      src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Bold-Italic.woff2")}') format('woff2');
-      font-weight: bold; font-style: italic;
+    styleElement = document.createElement("style");
+    styleElement.dataset.ext = "accessibility";
+
+    styleElement.textContent = `
+      @font-face {
+        font-family: 'OpenDyslexic';
+        src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Regular.woff2")}') format('woff2');
+        font-weight: normal; font-style: normal;
+      }
+      @font-face {
+        font-family: 'OpenDyslexic';
+        src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Bold.woff2")}') format('woff2');
+        font-weight: bold; font-style: normal;
+      }
+      @font-face {
+        font-family: 'OpenDyslexic';
+        src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Italic.woff2")}') format('woff2');
+        font-weight: normal; font-style: italic;
+      }
+      @font-face {
+        font-family: 'OpenDyslexic';
+        src: url('${chrome.runtime.getURL("fonts/OpenDyslexic/compiled/OpenDyslexic-Bold-Italic.woff2")}') format('woff2');
+        font-weight: bold; font-style: italic;
+      }
+
+      :root {
+        --a11y-letter-spacing: 0em;
+        --a11y-line-height: normal;
+        --readable-ruler-y: 50vh;
+        --readable-aid-height: 72px;
+        --readable-aid-opacity: 0.24;
+        --readable-aid-color: #ffe066;
+      }
+
+      body.readable-letter-spacing p,
+      body.readable-letter-spacing span:not([role="button"]):not(.material-icons):not(.material-symbols-outlined):not(.material-symbols-rounded):not(.material-symbols-sharp):not(.icon),
+      body.readable-letter-spacing h1, body.readable-letter-spacing h2, body.readable-letter-spacing h3,
+      body.readable-letter-spacing h4, body.readable-letter-spacing h5, body.readable-letter-spacing h6,
+      body.readable-letter-spacing li,
+      body.readable-letter-spacing td, body.readable-letter-spacing th,
+      body.readable-letter-spacing label,
+      body.readable-letter-spacing a:not([role="button"]) {
+        letter-spacing: var(--a11y-letter-spacing) !important;
+      }
+
+      body.readable-line-spacing p,
+      body.readable-line-spacing li,
+      body.readable-line-spacing td,
+      body.readable-line-spacing th {
+        line-height: var(--a11y-line-height) !important;
+      }
+
+      body.font-dyslexic p, body.font-dyslexic span,
+      body.font-dyslexic h1, body.font-dyslexic h2, body.font-dyslexic h3,
+      body.font-dyslexic h4, body.font-dyslexic h5, body.font-dyslexic h6,
+      body.font-dyslexic li, body.font-dyslexic a, body.font-dyslexic button,
+      body.font-dyslexic input, body.font-dyslexic textarea, body.font-dyslexic label {
+        font-family: 'OpenDyslexic', sans-serif !important;
+      }
+
+      body.font-dyslexic :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
+      body.font-dyslexic :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor) *,
+      body.readable-letter-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
+      body.readable-letter-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor) *,
+      body.readable-line-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
+      body.readable-line-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor) * {
+        font-family: revert !important;
+        letter-spacing: revert !important;
+        line-height: revert !important;
+      }
+
+      body canvas,
+      body svg,
+      body [role="img"],
+      body [aria-hidden="true"],
+      body .no-scale {
+        letter-spacing: 0 !important;
+        line-height: normal !important;
+      }
+
+      body.high-contrast {
+        background-color: black !important;
+        color: white !important;
+        color-scheme: dark;
+      }
+
+      body.high-contrast :is(main, header, footer, section, article, nav, aside, form, dialog, [role="dialog"], [role="main"]) {
+        background-color: black !important;
+        color: white !important;
+      }
+
+      body.high-contrast :is(p, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption, caption, label, legend, summary, dt, dd) {
+        color: white !important;
+      }
+
+      body.high-contrast a, body.high-contrast a * {
+        color: #fffe00 !important;
+        background-color: black !important;
+        text-decoration: underline;
+      }
+
+      body.high-contrast :disabled, body.high-contrast [disabled], body.high-contrast .disabled {
+        color: #3ef240 !important;
+      }
+
+      body.high-contrast ::selection {
+        background-color: #19ebfe !important;
+        color: black !important;
+      }
+
+      body.high-contrast :is(input, textarea, select) {
+        background-color: black !important;
+        color: white !important;
+        border-color: #19ebfe !important;
+      }
+
+      body.high-contrast button, body.high-contrast [role="button"],
+      body.high-contrast input[type="button"], body.high-contrast input[type="submit"] {
+        background-color: black !important;
+        color: white !important;
+        border: 1px solid #19ebfe !important;
+      }
+
+      body.high-contrast *:focus {
+        outline: 2px solid #19ebfe !important;
+        outline-offset: 2px !important;
+      }
+
+      .readable-reading-aid {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        pointer-events: none;
+        display: none;
+      }
+
+      .readable-reading-aid[data-mode="ruler"],
+      .readable-reading-aid[data-mode="focus"] {
+        display: block;
+      }
+
+      .readable-reading-aid[data-mode="ruler"]::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2));
+        height: var(--readable-aid-height);
+        background: var(--readable-aid-color);
+        opacity: var(--readable-aid-opacity);
+      }
+
+      .readable-reading-aid[data-mode="focus"] {
+        background:
+          linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, var(--readable-aid-opacity)) 0,
+            rgba(0, 0, 0, var(--readable-aid-opacity)) calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2)),
+            transparent calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2)),
+            transparent calc(var(--readable-ruler-y) + (var(--readable-aid-height) / 2)),
+            rgba(0, 0, 0, var(--readable-aid-opacity)) calc(var(--readable-ruler-y) + (var(--readable-aid-height) / 2)),
+            rgba(0, 0, 0, var(--readable-aid-opacity)) 100%
+          );
+      }
+    `;
+
+    document.head.appendChild(styleElement);
+
+    overlayElement = isTopFrame ? document.createElement("div") : null;
+    if (overlayElement) {
+      overlayElement.className = "readable-reading-aid";
+      overlayElement.dataset.mode = "none";
+      document.documentElement.appendChild(overlayElement);
     }
 
-    :root {
-      --a11y-letter-spacing: 0em;
-      --a11y-line-height: normal;
-      --readable-ruler-y: 50vh;
-      --readable-aid-height: 72px;
-      --readable-aid-opacity: 0.24;
-      --readable-aid-color: #ffe066;
+    if (isTopFrame && !isPointerListenerAttached) {
+      window.addEventListener("mousemove", handlePointerMove, { passive: true });
+      isPointerListenerAttached = true;
     }
 
-    body.readable-letter-spacing p,
-    body.readable-letter-spacing span:not([role="button"]):not(.material-icons):not(.material-symbols-outlined):not(.material-symbols-rounded):not(.material-symbols-sharp):not(.icon),
-    body.readable-letter-spacing h1, body.readable-letter-spacing h2, body.readable-letter-spacing h3,
-    body.readable-letter-spacing h4, body.readable-letter-spacing h5, body.readable-letter-spacing h6,
-    body.readable-letter-spacing li,
-    body.readable-letter-spacing td, body.readable-letter-spacing th,
-    body.readable-letter-spacing label,
-    body.readable-letter-spacing a:not([role="button"]) {
-      letter-spacing: var(--a11y-letter-spacing) !important;
-    }
+    observer = new MutationObserver((mutations) => {
+      let hasRemovedElements = false;
+      const addedElements = [];
 
-    body.readable-line-spacing p,
-    body.readable-line-spacing li,
-    body.readable-line-spacing td,
-    body.readable-line-spacing th {
-      line-height: var(--a11y-line-height) !important;
-    }
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            addedElements.push(node);
+          }
+        });
 
-    body.font-dyslexic p, body.font-dyslexic span,
-    body.font-dyslexic h1, body.font-dyslexic h2, body.font-dyslexic h3,
-    body.font-dyslexic h4, body.font-dyslexic h5, body.font-dyslexic h6,
-    body.font-dyslexic li, body.font-dyslexic a, body.font-dyslexic button,
-    body.font-dyslexic input, body.font-dyslexic textarea, body.font-dyslexic label {
-      font-family: 'OpenDyslexic', sans-serif !important;
-    }
+        if (!hasRemovedElements) {
+          hasRemovedElements = Array.from(mutation.removedNodes).some(
+            (node) => node.nodeType === Node.ELEMENT_NODE
+          );
+        }
+      });
 
-    body.font-dyslexic :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
-    body.font-dyslexic :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor) *,
-    body.readable-letter-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
-    body.readable-letter-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor) *,
-    body.readable-line-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
-    body.readable-line-spacing :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor) * {
-      font-family: revert !important;
-      letter-spacing: revert !important;
-      line-height: revert !important;
-    }
+      if (hasRemovedElements) {
+        pruneOriginalFontSizes();
+      }
 
-    body canvas,
-    body svg,
-    body [role="img"],
-    body [aria-hidden="true"],
-    body .no-scale {
-      letter-spacing: 0 !important;
-      line-height: normal !important;
-    }
+      if (addedElements.length > 0) {
+        applyFontScaleToAddedElements(addedElements);
+      }
+    });
 
-    body.high-contrast {
-      background-color: black !important;
-      color: white !important;
-      color-scheme: dark;
-    }
-
-    body.high-contrast :is(main, header, footer, section, article, nav, aside, form, dialog, [role="dialog"], [role="main"]) {
-      background-color: black !important;
-      color: white !important;
-    }
-
-    body.high-contrast :is(p, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption, caption, label, legend, summary, dt, dd) {
-      color: white !important;
-    }
-
-    body.high-contrast a, body.high-contrast a * {
-      color: #fffe00 !important;
-      background-color: black !important;
-      text-decoration: underline;
-    }
-
-    body.high-contrast :disabled, body.high-contrast [disabled], body.high-contrast .disabled {
-      color: #3ef240 !important;
-    }
-
-    body.high-contrast ::selection {
-      background-color: #19ebfe !important;
-      color: black !important;
-    }
-
-    body.high-contrast :is(input, textarea, select) {
-      background-color: black !important;
-      color: white !important;
-      border-color: #19ebfe !important;
-    }
-
-    body.high-contrast button, body.high-contrast [role="button"],
-    body.high-contrast input[type="button"], body.high-contrast input[type="submit"] {
-      background-color: black !important;
-      color: white !important;
-      border: 1px solid #19ebfe !important;
-    }
-
-    body.high-contrast *:focus {
-      outline: 2px solid #19ebfe !important;
-      outline-offset: 2px !important;
-    }
-
-    .readable-reading-aid {
-      position: fixed;
-      inset: 0;
-      z-index: 2147483647;
-      pointer-events: none;
-      display: none;
-    }
-
-    .readable-reading-aid[data-mode="ruler"],
-    .readable-reading-aid[data-mode="focus"] {
-      display: block;
-    }
-
-    .readable-reading-aid[data-mode="ruler"]::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2));
-      height: var(--readable-aid-height);
-      background: var(--readable-aid-color);
-      opacity: var(--readable-aid-opacity);
-    }
-
-    .readable-reading-aid[data-mode="focus"] {
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(0, 0, 0, var(--readable-aid-opacity)) 0,
-          rgba(0, 0, 0, var(--readable-aid-opacity)) calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2)),
-          transparent calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2)),
-          transparent calc(var(--readable-ruler-y) + (var(--readable-aid-height) / 2)),
-          rgba(0, 0, 0, var(--readable-aid-opacity)) calc(var(--readable-ruler-y) + (var(--readable-aid-height) / 2)),
-          rgba(0, 0, 0, var(--readable-aid-opacity)) 100%
-        );
-    }
-  `;
-
-  document.head.appendChild(styleElement);
-
-  const overlayElement = isTopFrame ? document.createElement("div") : null;
-  if (overlayElement) {
-    overlayElement.className = "readable-reading-aid";
-    overlayElement.dataset.mode = "none";
-    document.documentElement.appendChild(overlayElement);
+    isInitialized = true;
   }
 
   const EXCLUDED_SELECTORS = [
@@ -441,6 +562,24 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
     document.documentElement.style.setProperty("--readable-aid-color", state.readingAidColor);
   }
 
+  function syncObserver() {
+    if (!observer) return;
+
+    if (state.fontSize !== 1 && !isObserverAttached) {
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+      isObserverAttached = true;
+    }
+
+    if (state.fontSize === 1 && isObserverAttached) {
+      observer.disconnect();
+      isObserverAttached = false;
+      pruneOriginalFontSizes();
+    }
+  }
+
   function applySettings() {
     document.body.classList.toggle("font-dyslexic", state.isDyslexia);
     document.body.classList.toggle("high-contrast", state.isContrast);
@@ -455,9 +594,14 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
 
     applyFontScale();
     applyReadingAid();
+    syncObserver();
   }
 
   function scheduleApplySettings() {
+    if (!hasActiveSettings(state) && !isInitialized) return;
+
+    ensureInitialized();
+
     if (applyFrame !== null) {
       cancelAnimationFrame(applyFrame);
     }
@@ -479,46 +623,6 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
       applyReadingAid();
     }
   }
-
-  if (isTopFrame) {
-    window.addEventListener("mousemove", handlePointerMove, { passive: true });
-  }
-
-  const observer = new MutationObserver((mutations) => {
-    let hasRemovedElements = false;
-    const addedElements = [];
-
-    mutations.forEach((mutation) => {
-      mutation.addedNodes.forEach((node) => {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          addedElements.push(node);
-        }
-      });
-
-      if (!hasRemovedElements) {
-        hasRemovedElements = Array.from(mutation.removedNodes).some(
-          (node) => node.nodeType === Node.ELEMENT_NODE
-        );
-      }
-    });
-
-    if (hasRemovedElements) {
-      pruneOriginalFontSizes();
-    }
-
-    if (addedElements.length > 0) {
-      applyFontScaleToAddedElements(addedElements);
-    }
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
-
-  chrome.storage.sync.get(DEFAULT_STATE, (storedState) => {
-    updateState(storedState);
-  });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.action === "updateSettings") {
@@ -545,4 +649,14 @@ chrome.storage.sync.get({ disabledSites: [] }, (result) => {
 
     sendResponse({ ok: true });
   });
-});
+
+  chrome.storage.sync.get({ ...DEFAULT_STATE, disabledSites: [] }, (storedState) => {
+    const { disabledSites, ...settings } = storedState;
+
+    if (isUserDisabledSite(disabledSites)) {
+      return;
+    }
+
+    updateState(settings);
+  });
+}
