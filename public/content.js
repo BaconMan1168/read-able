@@ -105,6 +105,9 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   let isObserverAttached = false;
   let styleElement = null;
   let overlayElement = null;
+  let rulerElement = null;
+  let focusTopElement = null;
+  let focusBottomElement = null;
   let observer = null;
 
   function ensureInitialized() {
@@ -138,7 +141,6 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       :root {
         --a11y-letter-spacing: 0em;
         --a11y-line-height: normal;
-        --readable-ruler-y: 50vh;
         --readable-aid-height: 72px;
         --readable-aid-opacity: 0.24;
         --readable-aid-color: #ffe066;
@@ -251,38 +253,35 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
         display: block;
       }
 
-      .readable-reading-aid::before,
-      .readable-reading-aid::after {
-        content: "";
-        position: absolute;
+      .readable-ruler-strip,
+      .readable-focus-shade {
+        position: fixed;
+        top: 0;
         left: 0;
         right: 0;
         display: none;
+        transform: translate3d(0, -100vh, 0);
+        will-change: transform;
+      }
+
+      .readable-ruler-strip {
+        height: var(--readable-aid-height);
         background: var(--readable-aid-color);
         opacity: var(--readable-aid-opacity);
       }
 
-      .readable-reading-aid[data-mode="ruler"]::before {
-        display: block;
-        top: calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2));
-        height: var(--readable-aid-height);
-        will-change: transform;
-      }
-
-      .readable-reading-aid[data-mode="focus"]::before,
-      .readable-reading-aid[data-mode="focus"]::after {
-        display: block;
+      .readable-focus-shade {
+        height: 1px;
         background: rgba(0, 0, 0, var(--readable-aid-opacity));
+        transform-origin: top left;
       }
 
-      .readable-reading-aid[data-mode="focus"]::before {
-        top: 0;
-        height: max(0px, calc(var(--readable-ruler-y) - (var(--readable-aid-height) / 2)));
+      .readable-reading-aid[data-mode="ruler"] .readable-ruler-strip {
+        display: block;
       }
 
-      .readable-reading-aid[data-mode="focus"]::after {
-        top: calc(var(--readable-ruler-y) + (var(--readable-aid-height) / 2));
-        bottom: 0;
+      .readable-reading-aid[data-mode="focus"] .readable-focus-shade {
+        display: block;
       }
     `;
 
@@ -292,6 +291,15 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     if (overlayElement) {
       overlayElement.className = "readable-reading-aid";
       overlayElement.dataset.mode = "none";
+      rulerElement = document.createElement("div");
+      focusTopElement = document.createElement("div");
+      focusBottomElement = document.createElement("div");
+
+      rulerElement.className = "readable-ruler-strip";
+      focusTopElement.className = "readable-focus-shade";
+      focusBottomElement.className = "readable-focus-shade";
+
+      overlayElement.append(rulerElement, focusTopElement, focusBottomElement);
       document.documentElement.appendChild(overlayElement);
     }
 
@@ -569,7 +577,17 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   }
 
   function updateReadingAidPosition() {
-    document.documentElement.style.setProperty("--readable-ruler-y", `${pointerY}px`);
+    if (!rulerElement || !focusTopElement || !focusBottomElement) return;
+
+    const aidHeight = state.readingAidHeight;
+    const y = Math.min(Math.max(pointerY, 0), window.innerHeight);
+    const topEdge = Math.max(0, y - aidHeight / 2);
+    const bottomEdge = Math.min(window.innerHeight, y + aidHeight / 2);
+    const bottomShadeHeight = Math.max(0, window.innerHeight - bottomEdge);
+
+    rulerElement.style.transform = `translate3d(0, ${y - aidHeight / 2}px, 0)`;
+    focusTopElement.style.transform = `translate3d(0, 0, 0) scaleY(${topEdge})`;
+    focusBottomElement.style.transform = `translate3d(0, ${bottomEdge}px, 0) scaleY(${bottomShadeHeight})`;
   }
 
   function scheduleReadingAidPosition() {
@@ -587,13 +605,19 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     const shouldAttach = state.readingAid === "ruler" || state.readingAid === "focus";
 
     if (shouldAttach && !isPointerListenerAttached) {
-      window.addEventListener("mousemove", handlePointerMove, { passive: true });
+      window.addEventListener("pointermove", handlePointerMove, { passive: true });
+      window.addEventListener("resize", handleViewportResize);
       isPointerListenerAttached = true;
     }
 
     if (!shouldAttach && isPointerListenerAttached) {
-      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("resize", handleViewportResize);
       isPointerListenerAttached = false;
+      if (pointerFrame !== null) {
+        cancelAnimationFrame(pointerFrame);
+        pointerFrame = null;
+      }
     }
   }
 
@@ -655,6 +679,13 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
 
   function handlePointerMove(event) {
     pointerY = event.clientY;
+    if (state.readingAid !== "none") {
+      scheduleReadingAidPosition();
+    }
+  }
+
+  function handleViewportResize() {
+    pointerY = Math.min(pointerY, window.innerHeight);
     if (state.readingAid !== "none") {
       scheduleReadingAidPosition();
     }
