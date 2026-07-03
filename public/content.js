@@ -95,6 +95,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   globalThis.__readableContentScriptLoaded = true;
 
   const state = { ...DEFAULT_STATE };
+  const pendingChangedKeys = new Set();
   const originalFontSizes = new Map();
   const isTopFrame = window.top === window;
   let applyFrame = null;
@@ -671,22 +672,41 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     }
   }
 
-  function applySettings() {
-    document.body.classList.toggle("font-dyslexic", state.isDyslexia);
-    document.body.classList.toggle("high-contrast", state.isContrast);
-    document.body.classList.toggle("readable-letter-spacing", state.letterSpacing !== 0);
-    document.body.classList.toggle("readable-line-spacing", state.lineSpacing !== 1.5);
+  function hasChangedKey(changedKeys, keys) {
+    return keys.some((key) => changedKeys.has(key));
+  }
 
-    document.documentElement.style.setProperty("--a11y-letter-spacing", `${state.letterSpacing}em`);
-    document.documentElement.style.setProperty(
-      "--a11y-line-height",
-      state.lineSpacing === 1.5 ? "normal" : state.lineSpacing
-    );
+  function applySettings(changedKeys) {
+    if (changedKeys.has("isDyslexia")) {
+      document.body.classList.toggle("font-dyslexic", state.isDyslexia);
+    }
 
-    applyFontScale();
-    applyReadingAid();
-    syncPointerListener();
-    syncObserver();
+    if (changedKeys.has("isContrast")) {
+      document.body.classList.toggle("high-contrast", state.isContrast);
+    }
+
+    if (changedKeys.has("letterSpacing")) {
+      document.body.classList.toggle("readable-letter-spacing", state.letterSpacing !== 0);
+      document.documentElement.style.setProperty("--a11y-letter-spacing", `${state.letterSpacing}em`);
+    }
+
+    if (changedKeys.has("lineSpacing")) {
+      document.body.classList.toggle("readable-line-spacing", state.lineSpacing !== 1.5);
+      document.documentElement.style.setProperty(
+        "--a11y-line-height",
+        state.lineSpacing === 1.5 ? "normal" : state.lineSpacing
+      );
+    }
+
+    if (changedKeys.has("fontSize")) {
+      applyFontScale();
+      syncObserver();
+    }
+
+    if (hasChangedKey(changedKeys, ["readingAid", "readingAidHeight", "readingAidOpacity", "readingAidColor"])) {
+      applyReadingAid();
+      syncPointerListener();
+    }
   }
 
   function scheduleApplySettings() {
@@ -700,13 +720,26 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
 
     applyFrame = requestAnimationFrame(() => {
       applyFrame = null;
-      applySettings();
+      const changedKeys = new Set(pendingChangedKeys);
+      pendingChangedKeys.clear();
+      applySettings(changedKeys);
     });
   }
 
   function updateState(nextState) {
-    Object.assign(state, nextState);
-    scheduleApplySettings();
+    let hasChangedState = false;
+
+    Object.entries(nextState).forEach(([key, value]) => {
+      if (Object.is(state[key], value)) return;
+
+      state[key] = value;
+      pendingChangedKeys.add(key);
+      hasChangedState = true;
+    });
+
+    if (hasChangedState) {
+      scheduleApplySettings();
+    }
   }
 
   function handlePointerMove(event) {
