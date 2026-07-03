@@ -82,6 +82,8 @@ function App() {
   const [isPausedSite, setIsPausedSite] = useState(false);
   const [messageError, setMessageError] = useState('');
   const saveTimer = useRef(null);
+  const fontScaleMessageFrame = useRef(null);
+  const pendingFontScaleSettings = useRef(null);
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -118,6 +120,12 @@ function App() {
       if (saveTimer.current) {
         clearTimeout(saveTimer.current);
       }
+
+      if (fontScaleMessageFrame.current !== null) {
+        cancelAnimationFrame(fontScaleMessageFrame.current);
+      }
+
+      pendingFontScaleSettings.current = null;
     };
   }, []);
 
@@ -175,10 +183,45 @@ function App() {
     sendMessage(true);
   };
 
+  const cancelScheduledFontScaleMessage = () => {
+    if (fontScaleMessageFrame.current !== null) {
+      cancelAnimationFrame(fontScaleMessageFrame.current);
+      fontScaleMessageFrame.current = null;
+    }
+
+    pendingFontScaleSettings.current = null;
+  };
+
+  const scheduleFontScaleMessage = (nextSettings) => {
+    pendingFontScaleSettings.current = nextSettings;
+
+    if (fontScaleMessageFrame.current !== null) return;
+
+    fontScaleMessageFrame.current = requestAnimationFrame(() => {
+      fontScaleMessageFrame.current = null;
+
+      const settingsToSend = pendingFontScaleSettings.current;
+      pendingFontScaleSettings.current = null;
+
+      if (settingsToSend) {
+        sendSettingsToTab(settingsToSend);
+      }
+    });
+  };
+
   const updateSettings = (partialSettings) => {
     const nextSettings = { ...settings, ...partialSettings };
+    const isFontSizeOnlyUpdate = Object.keys(partialSettings).length === 1 && "fontSize" in partialSettings;
+
     setSettings(nextSettings);
     saveSettings(partialSettings);
+
+    if (isFontSizeOnlyUpdate) {
+      scheduleFontScaleMessage(nextSettings);
+      return;
+    }
+
+    cancelScheduledFontScaleMessage();
     sendSettingsToTab(nextSettings);
   };
 
@@ -205,6 +248,7 @@ function App() {
   const resetSettings = () => {
     setSettings(DEFAULT_SETTINGS);
     chrome.storage.sync.set(DEFAULT_SETTINGS);
+    cancelScheduledFontScaleMessage();
     sendSettingsToTab(DEFAULT_SETTINGS);
   };
 
