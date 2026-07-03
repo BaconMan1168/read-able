@@ -101,6 +101,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   let applyFrame = null;
   let pointerFrame = null;
   let pointerY = Math.round(window.innerHeight / 2);
+  let isFontScaleCachePrimed = false;
   let isInitialized = false;
   let isPointerListenerAttached = false;
   let isObserverAttached = false;
@@ -554,6 +555,14 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     el.style.fontSize = `${original.baseSize * state.fontSize}px`;
   }
 
+  function restoreFontSizes() {
+    originalFontSizes.forEach((original, el) => {
+      restoreFontSize(el, original);
+    });
+    originalFontSizes.clear();
+    isFontScaleCachePrimed = false;
+  }
+
   function pruneOriginalFontSizes() {
     originalFontSizes.forEach((_, el) => {
       if (!el.isConnected) {
@@ -573,20 +582,21 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   }
 
   function applyFontScale() {
-    const scopedElements = getScalableElements();
-    pruneOriginalFontSizes();
-
-    originalFontSizes.forEach((original, el) => {
-      if (state.fontSize === 1 || !scopedElements.has(el)) {
-        restoreFontSize(el, original);
-      } else {
-        scaleFontSize(el, original);
-      }
-    });
-
-    if (state.fontSize !== 1) {
-      applyFontScaleToElements(scopedElements);
+    if (state.fontSize === 1) {
+      restoreFontSizes();
+      return;
     }
+
+    if (!isFontScaleCachePrimed) {
+      applyFontScaleToElements(getScalableElements());
+      isFontScaleCachePrimed = true;
+      return;
+    }
+
+    pruneOriginalFontSizes();
+    originalFontSizes.forEach((original, el) => {
+      scaleFontSize(el, original);
+    });
   }
 
   function applyFontScaleToAddedElements(addedElements) {
