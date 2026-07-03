@@ -99,8 +99,10 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   const originalFontSizes = new Map();
   const isTopFrame = window.top === window;
   let applyFrame = null;
+  let observerFrame = null;
   let pointerFrame = null;
   let pointerY = Math.round(window.innerHeight / 2);
+  let hasPendingRemovedElements = false;
   let isFontScaleCachePrimed = false;
   let isInitialized = false;
   let isPointerListenerAttached = false;
@@ -111,6 +113,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   let focusTopElement = null;
   let focusBottomElement = null;
   let observer = null;
+  const pendingAddedElements = new Set();
 
   function ensureInitialized() {
     if (isInitialized) return;
@@ -338,29 +341,22 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     }
 
     observer = new MutationObserver((mutations) => {
-      let hasRemovedElements = false;
-      const addedElements = [];
-
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            addedElements.push(node);
+            pendingAddedElements.add(node);
           }
         });
 
-        if (!hasRemovedElements) {
-          hasRemovedElements = Array.from(mutation.removedNodes).some(
+        if (!hasPendingRemovedElements) {
+          hasPendingRemovedElements = Array.from(mutation.removedNodes).some(
             (node) => node.nodeType === Node.ELEMENT_NODE
           );
         }
       });
 
-      if (hasRemovedElements) {
-        pruneOriginalFontSizes();
-      }
-
-      if (addedElements.length > 0) {
-        applyFontScaleToAddedElements(addedElements);
+      if (hasPendingRemovedElements || pendingAddedElements.size > 0) {
+        scheduleFontScaleMutationProcessing();
       }
     });
 
@@ -607,6 +603,37 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     applyFontScaleToElements(scopedElements);
   }
 
+  function resetPendingFontScaleMutations() {
+    if (observerFrame !== null) {
+      cancelAnimationFrame(observerFrame);
+      observerFrame = null;
+    }
+
+    hasPendingRemovedElements = false;
+    pendingAddedElements.clear();
+  }
+
+  function flushFontScaleMutations() {
+    observerFrame = null;
+
+    if (hasPendingRemovedElements) {
+      pruneOriginalFontSizes();
+      hasPendingRemovedElements = false;
+    }
+
+    if (pendingAddedElements.size > 0) {
+      const addedElements = Array.from(pendingAddedElements);
+      pendingAddedElements.clear();
+      applyFontScaleToAddedElements(addedElements);
+    }
+  }
+
+  function scheduleFontScaleMutationProcessing() {
+    if (observerFrame !== null) return;
+
+    observerFrame = requestAnimationFrame(flushFontScaleMutations);
+  }
+
   function applyReadingAid() {
     if (!overlayElement) return;
 
@@ -678,6 +705,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     if (state.fontSize === 1 && isObserverAttached) {
       observer.disconnect();
       isObserverAttached = false;
+      resetPendingFontScaleMutations();
       pruneOriginalFontSizes();
     }
   }
