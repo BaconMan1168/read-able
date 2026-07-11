@@ -36,12 +36,23 @@ function getContrastColors(settings) {
     };
   }
 
+  if (settings.contrastMode === 'dark-reader') {
+    return {
+      background: '#000000',
+      text: '#ffffff',
+      link: '#ffffff',
+      accent: '#ffffff',
+      colorScheme: 'dark',
+    };
+  }
+
   if (settings.contrastMode === 'custom') {
     return {
       background: settings.customContrastBackground,
       text: settings.customContrastText,
       link: settings.customContrastLink,
       accent: settings.customContrastAccent,
+      colorScheme: 'dark',
     };
   }
 
@@ -50,6 +61,7 @@ function getContrastColors(settings) {
     text: '#ffffff',
     link: '#fffe00',
     accent: '#19ebfe',
+    colorScheme: 'dark',
   };
 }
 
@@ -87,7 +99,8 @@ function applyReaderSettings(settings) {
   root.style.setProperty('--reader-letter-spacing', `${settings.letterSpacing}em`);
   root.style.setProperty('--reader-line-height', settings.lineSpacing === 1.5 ? '1.5' : String(settings.lineSpacing));
   document.body.classList.toggle('reader-font-dyslexic', settings.isDyslexia);
-  document.body.classList.toggle('reader-contrast', settings.isContrast);
+  document.body.classList.toggle('reader-contrast', Boolean(colors.colorScheme));
+  document.body.style.colorScheme = colors.colorScheme || 'light';
 }
 
 function ReaderApp() {
