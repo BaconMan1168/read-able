@@ -1,3 +1,8 @@
+import {
+  disable as disableDarkReader,
+  enable as enableDarkReader,
+} from "darkreader";
+
 const DEFAULT_STATE = {
   isDyslexia: false,
   isContrast: false,
@@ -37,6 +42,46 @@ const PAUSED_SITE_RULES = [
   { host: "sharepoint.com" },
   { host: "onedrive.live.com" },
 ];
+
+const HIGH_CONTRAST_THEME = {
+  mode: 1,
+  brightness: 100,
+  contrast: 115,
+  grayscale: 0,
+  sepia: 0,
+  useFont: false,
+  fontFamily: "",
+  textStroke: 0,
+  darkSchemeBackgroundColor: "#000000",
+  darkSchemeTextColor: "#ffffff",
+  lightSchemeBackgroundColor: "#ffffff",
+  lightSchemeTextColor: "#000000",
+  scrollbarColor: "auto",
+  selectionColor: "#19ebfe",
+  styleSystemControls: true,
+};
+
+const HIGH_CONTRAST_FIXES = {
+  invert: [],
+  css: `
+.readable-reading-aid,
+.readable-reading-aid * {
+  color-scheme: normal !important;
+}
+
+.readable-ruler-strip {
+  background: var(--readable-aid-color) !important;
+}
+
+.readable-focus-shade {
+  background: rgba(0, 0, 0, var(--readable-aid-opacity)) !important;
+}
+`,
+  ignoreInlineStyle: [".readable-reading-aid", ".readable-reading-aid *"],
+  ignoreImageAnalysis: [".readable-reading-aid", ".readable-reading-aid *"],
+  disableStyleSheetsProxy: false,
+  ignoreCSSUrl: [],
+};
 
 function getHostname(value) {
   try {
@@ -117,6 +162,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   let focusTopElement = null;
   let focusBottomElement = null;
   let observer = null;
+  let isHighContrastApplied = false;
   const pendingAddedElements = new Set();
 
   function ensureInitialized() {
@@ -212,80 +258,6 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       body .no-scale {
         letter-spacing: 0 !important;
         line-height: normal !important;
-      }
-
-      body.high-contrast {
-        background-color: black !important;
-        color: white !important;
-        color-scheme: dark;
-      }
-
-      body.high-contrast :is(main, header, footer, section, article, nav, aside, form, dialog, [role="dialog"], [role="main"]) {
-        background-color: black !important;
-        color: white !important;
-      }
-
-      body.high-contrast :is(p, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption, caption, label, legend, summary, dt, dd) {
-        color: white !important;
-      }
-
-      body.high-contrast a, body.high-contrast a * {
-        color: #fffe00 !important;
-        background-color: black !important;
-        text-decoration: underline;
-      }
-
-      body.high-contrast svg {
-        color: inherit !important;
-      }
-
-      body.high-contrast svg :is(path, circle, rect, polygon, ellipse, text, tspan, use):not([fill="none" i]) {
-        fill: currentColor !important;
-      }
-
-      body.high-contrast svg :is(g, path, circle, rect, line, polyline, polygon, ellipse, text, tspan, use)[stroke]:not([stroke="none" i]) {
-        stroke: currentColor !important;
-      }
-
-      body.high-contrast svg[fill="none" i],
-      body.high-contrast svg [fill="none" i],
-      body.high-contrast svg[fill="none" i] *,
-      body.high-contrast svg [fill="none" i] * {
-        fill: none !important;
-      }
-
-      body.high-contrast svg[stroke="none" i],
-      body.high-contrast svg [stroke="none" i],
-      body.high-contrast svg[stroke="none" i] *,
-      body.high-contrast svg [stroke="none" i] * {
-        stroke: none !important;
-      }
-
-      body.high-contrast :disabled, body.high-contrast [disabled], body.high-contrast .disabled {
-        color: #3ef240 !important;
-      }
-
-      body.high-contrast ::selection {
-        background-color: #19ebfe !important;
-        color: black !important;
-      }
-
-      body.high-contrast :is(input, textarea, select) {
-        background-color: black !important;
-        color: white !important;
-        border-color: #19ebfe !important;
-      }
-
-      body.high-contrast button, body.high-contrast [role="button"],
-      body.high-contrast input[type="button"], body.high-contrast input[type="submit"] {
-        background-color: black !important;
-        color: white !important;
-        border: 1px solid #19ebfe !important;
-      }
-
-      body.high-contrast *:focus {
-        outline: 2px solid #19ebfe !important;
-        outline-offset: 2px !important;
       }
 
       .readable-reading-aid {
@@ -738,6 +710,37 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     }, TEXT_ADJUSTMENT_TRANSITION_MS);
   }
 
+  function enableHighContrast() {
+    if (isHighContrastApplied) return;
+
+    try {
+      enableDarkReader(HIGH_CONTRAST_THEME, HIGH_CONTRAST_FIXES);
+      isHighContrastApplied = true;
+    } catch (error) {
+      console.warn("ReadAble high contrast could not be enabled.", error);
+    }
+  }
+
+  function disableHighContrast() {
+    if (!isHighContrastApplied) return;
+
+    try {
+      disableDarkReader();
+      isHighContrastApplied = false;
+    } catch (error) {
+      console.warn("ReadAble high contrast could not be disabled.", error);
+    }
+  }
+
+  function applyHighContrast() {
+    if (state.isContrast) {
+      enableHighContrast();
+      return;
+    }
+
+    disableHighContrast();
+  }
+
   function applySettings(changedKeys, { smoothText = false } = {}) {
     if (smoothText && hasChangedKey(changedKeys, TEXT_ADJUSTMENT_KEYS)) {
       scheduleTextAdjustmentTransition();
@@ -748,7 +751,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     }
 
     if (changedKeys.has("isContrast")) {
-      document.body.classList.toggle("high-contrast", state.isContrast);
+      applyHighContrast();
     }
 
     if (changedKeys.has("letterSpacing")) {
