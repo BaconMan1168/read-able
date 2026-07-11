@@ -4,6 +4,12 @@ import './App.css';
 const DEFAULT_SETTINGS = {
   isDyslexia: false,
   isContrast: false,
+  contrastMode: 'semantic',
+  customContrastBackground: '#000000',
+  customContrastText: '#ffffff',
+  customContrastLink: '#fffe00',
+  customContrastAccent: '#19ebfe',
+  customContrastDisabled: '#3ef240',
   fontSize: 1,
   letterSpacing: 0,
   lineSpacing: 1.5,
@@ -327,6 +333,81 @@ function App() {
               <span className="slider round" role="presentation"></span>
             </label>
           </div>
+
+          {settings.isContrast && (
+            <div className="contrast-options">
+              <label htmlFor="contrastMode">Contrast Mode</label>
+              <select
+                id="contrastMode"
+                value={settings.contrastMode}
+                disabled={controlsDisabled}
+                onChange={(e) => updateSettings({ contrastMode: e.target.value })}
+              >
+                <option value="semantic">Original semantic</option>
+                <option value="dark-reader">Dark Reader B/W</option>
+                <option value="custom">Custom</option>
+              </select>
+
+              {settings.contrastMode === 'custom' && (
+                <div className="contrast-color-grid" aria-label="Custom contrast colors">
+                  <div className="color-control">
+                    <label htmlFor="customContrastBackground">Background</label>
+                    <input
+                      id="customContrastBackground"
+                      type="color"
+                      value={settings.customContrastBackground}
+                      disabled={controlsDisabled}
+                      onChange={(e) => updateSettings({ customContrastBackground: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="color-control">
+                    <label htmlFor="customContrastText">Text</label>
+                    <input
+                      id="customContrastText"
+                      type="color"
+                      value={settings.customContrastText}
+                      disabled={controlsDisabled}
+                      onChange={(e) => updateSettings({ customContrastText: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="color-control">
+                    <label htmlFor="customContrastLink">Links</label>
+                    <input
+                      id="customContrastLink"
+                      type="color"
+                      value={settings.customContrastLink}
+                      disabled={controlsDisabled}
+                      onChange={(e) => updateSettings({ customContrastLink: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="color-control">
+                    <label htmlFor="customContrastAccent">Accent</label>
+                    <input
+                      id="customContrastAccent"
+                      type="color"
+                      value={settings.customContrastAccent}
+                      disabled={controlsDisabled}
+                      onChange={(e) => updateSettings({ customContrastAccent: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="color-control">
+                    <label htmlFor="customContrastDisabled">Disabled</label>
+                    <input
+                      id="customContrastDisabled"
+                      type="color"
+                      value={settings.customContrastDisabled}
+                      disabled={controlsDisabled}
+                      onChange={(e) => updateSettings({ customContrastDisabled: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="slide-section" aria-label="Adjustable text settings">

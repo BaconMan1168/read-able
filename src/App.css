@@ -67,6 +67,7 @@ main {
 .switch-group span,
 .slide-container label,
 .control-section > label,
+.contrast-options label,
 .color-control label {
   color: #30322e;
   font-size: 0.88rem;
@@ -140,6 +141,16 @@ input:checked + .slider:before {
   width: 100%;
 }
 
+.contrast-options {
+  display: grid;
+  gap: 8px;
+}
+
+.contrast-color-grid {
+  display: grid;
+  gap: 8px;
+}
+
 .range-slider {
   width: 100%;
   height: 6px;
@@ -176,7 +187,8 @@ input:checked + .slider:before {
   outline-offset: 4px;
 }
 
-.control-section select {
+.control-section select,
+.contrast-options select {
   width: 100%;
   min-height: 36px;
   padding: 7px 9px;

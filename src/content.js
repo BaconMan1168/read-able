@@ -6,6 +6,12 @@ import {
 const DEFAULT_STATE = {
   isDyslexia: false,
   isContrast: false,
+  contrastMode: "semantic",
+  customContrastBackground: "#000000",
+  customContrastText: "#ffffff",
+  customContrastLink: "#fffe00",
+  customContrastAccent: "#19ebfe",
+  customContrastDisabled: "#3ef240",
   fontSize: 1,
   letterSpacing: 0,
   lineSpacing: 1.5,
@@ -81,6 +87,14 @@ const HIGH_CONTRAST_FIXES = {
   ignoreImageAnalysis: [".readable-reading-aid", ".readable-reading-aid *"],
   disableStyleSheetsProxy: false,
   ignoreCSSUrl: [],
+};
+
+const SEMANTIC_CONTRAST_COLORS = {
+  background: "#000000",
+  text: "#ffffff",
+  link: "#fffe00",
+  accent: "#19ebfe",
+  disabled: "#3ef240",
 };
 
 function getHostname(value) {
@@ -200,6 +214,11 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       :root {
         --a11y-letter-spacing: 0em;
         --a11y-line-height: normal;
+        --readable-contrast-background: #000000;
+        --readable-contrast-text: #ffffff;
+        --readable-contrast-link: #fffe00;
+        --readable-contrast-accent: #19ebfe;
+        --readable-contrast-disabled: #3ef240;
         --readable-aid-height: 72px;
         --readable-aid-opacity: 0.24;
         --readable-aid-color: #ffe066;
@@ -258,6 +277,80 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       body .no-scale {
         letter-spacing: 0 !important;
         line-height: normal !important;
+      }
+
+      body.readable-contrast-static {
+        background-color: var(--readable-contrast-background) !important;
+        color: var(--readable-contrast-text) !important;
+        color-scheme: dark;
+      }
+
+      body.readable-contrast-static :is(main, header, footer, section, article, nav, aside, form, dialog, [role="dialog"], [role="main"]) {
+        background-color: var(--readable-contrast-background) !important;
+        color: var(--readable-contrast-text) !important;
+      }
+
+      body.readable-contrast-static :is(p, span, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption, caption, label, legend, summary, dt, dd) {
+        color: var(--readable-contrast-text) !important;
+      }
+
+      body.readable-contrast-static a, body.readable-contrast-static a * {
+        color: var(--readable-contrast-link) !important;
+        background-color: var(--readable-contrast-background) !important;
+        text-decoration: underline;
+      }
+
+      body.readable-contrast-static svg {
+        color: inherit !important;
+      }
+
+      body.readable-contrast-static svg :is(path, circle, rect, polygon, ellipse, text, tspan, use):not([fill="none" i]) {
+        fill: currentColor !important;
+      }
+
+      body.readable-contrast-static svg :is(g, path, circle, rect, line, polyline, polygon, ellipse, text, tspan, use)[stroke]:not([stroke="none" i]) {
+        stroke: currentColor !important;
+      }
+
+      body.readable-contrast-static svg[fill="none" i],
+      body.readable-contrast-static svg [fill="none" i],
+      body.readable-contrast-static svg[fill="none" i] *,
+      body.readable-contrast-static svg [fill="none" i] * {
+        fill: none !important;
+      }
+
+      body.readable-contrast-static svg[stroke="none" i],
+      body.readable-contrast-static svg [stroke="none" i],
+      body.readable-contrast-static svg[stroke="none" i] *,
+      body.readable-contrast-static svg [stroke="none" i] * {
+        stroke: none !important;
+      }
+
+      body.readable-contrast-static :disabled, body.readable-contrast-static [disabled], body.readable-contrast-static .disabled {
+        color: var(--readable-contrast-disabled) !important;
+      }
+
+      body.readable-contrast-static ::selection {
+        background-color: var(--readable-contrast-accent) !important;
+        color: var(--readable-contrast-background) !important;
+      }
+
+      body.readable-contrast-static :is(input, textarea, select) {
+        background-color: var(--readable-contrast-background) !important;
+        color: var(--readable-contrast-text) !important;
+        border-color: var(--readable-contrast-accent) !important;
+      }
+
+      body.readable-contrast-static button, body.readable-contrast-static [role="button"],
+      body.readable-contrast-static input[type="button"], body.readable-contrast-static input[type="submit"] {
+        background-color: var(--readable-contrast-background) !important;
+        color: var(--readable-contrast-text) !important;
+        border: 1px solid var(--readable-contrast-accent) !important;
+      }
+
+      body.readable-contrast-static *:focus {
+        outline: 2px solid var(--readable-contrast-accent) !important;
+        outline-offset: 2px !important;
       }
 
       .readable-reading-aid {
@@ -732,13 +825,52 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     }
   }
 
+  function clearReadableContrastClasses() {
+    document.body.classList.remove("readable-contrast-static");
+  }
+
+  function applyContrastColors(colors) {
+    document.documentElement.style.setProperty("--readable-contrast-background", colors.background);
+    document.documentElement.style.setProperty("--readable-contrast-text", colors.text);
+    document.documentElement.style.setProperty("--readable-contrast-link", colors.link);
+    document.documentElement.style.setProperty("--readable-contrast-accent", colors.accent);
+    document.documentElement.style.setProperty("--readable-contrast-disabled", colors.disabled);
+  }
+
+  function getCustomContrastColors() {
+    return {
+      background: state.customContrastBackground,
+      text: state.customContrastText,
+      link: state.customContrastLink,
+      accent: state.customContrastAccent,
+      disabled: state.customContrastDisabled,
+    };
+  }
+
+  function applyStaticContrast(colors) {
+    applyContrastColors(colors);
+    document.body.classList.add("readable-contrast-static");
+  }
+
   function applyHighContrast() {
-    if (state.isContrast) {
+    disableHighContrast();
+    clearReadableContrastClasses();
+
+    if (!state.isContrast) {
+      return;
+    }
+
+    if (state.contrastMode === "dark-reader") {
       enableHighContrast();
       return;
     }
 
-    disableHighContrast();
+    if (state.contrastMode === "custom") {
+      applyStaticContrast(getCustomContrastColors());
+      return;
+    }
+
+    applyStaticContrast(SEMANTIC_CONTRAST_COLORS);
   }
 
   function applySettings(changedKeys, { smoothText = false } = {}) {
@@ -750,7 +882,17 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       document.body.classList.toggle("font-dyslexic", state.isDyslexia);
     }
 
-    if (changedKeys.has("isContrast")) {
+    if (
+      hasChangedKey(changedKeys, [
+        "isContrast",
+        "contrastMode",
+        "customContrastBackground",
+        "customContrastText",
+        "customContrastLink",
+        "customContrastAccent",
+        "customContrastDisabled",
+      ])
+    ) {
       applyHighContrast();
     }
 
