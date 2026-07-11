@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { build as buildWithEsbuild } from 'esbuild'
 import { readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -32,8 +33,21 @@ function cleanExtensionBuild() {
           .filter((fileName) => !REQUIRED_FONT_FILES.has(fileName))
           .map((fileName) => rm(join(compiledFontRoot, fileName), { force: true }))
       )
+
+      await buildContentScript(distRoot)
     },
   }
+}
+
+async function buildContentScript(distRoot) {
+  await buildWithEsbuild({
+    entryPoints: ['src/content.js'],
+    outfile: join(distRoot, 'content.js'),
+    bundle: true,
+    format: 'iife',
+    target: 'chrome102',
+    legalComments: 'none',
+  })
 }
 
 async function removeByName(root, fileNameToRemove) {
