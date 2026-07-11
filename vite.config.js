@@ -46,7 +46,7 @@ async function buildContentScript(distRoot) {
     bundle: true,
     format: 'iife',
     target: 'chrome102',
-    legalComments: 'none',
+    legalComments: 'eof',
   })
 }
 
