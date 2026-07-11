@@ -812,7 +812,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
 
     try {
       if (!isDarkReaderFetchConfigured) {
-        setDarkReaderFetchMethod(window.fetch.bind(window));
+        setDarkReaderFetchMethod(fetchContrastResource);
         isDarkReaderFetchConfigured = true;
       }
 
@@ -822,6 +822,19 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       isHighContrastApplied = true;
     } catch (error) {
       console.warn("ReadAble high contrast could not be enabled.", error);
+    }
+  }
+
+  async function fetchContrastResource(url) {
+    try {
+      return await window.fetch(url);
+    } catch {
+      return new Response("", {
+        status: 200,
+        headers: {
+          "Content-Type": "text/css",
+        },
+      });
     }
   }
 
