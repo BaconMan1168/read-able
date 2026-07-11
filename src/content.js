@@ -349,7 +349,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       body.readable-contrast-static input[type="button"], body.readable-contrast-static input[type="submit"] {
         background-color: var(--readable-contrast-background) !important;
         color: var(--readable-contrast-text) !important;
-        border: 1px solid var(--readable-contrast-accent) !important;
+        border-color: var(--readable-contrast-accent) !important;
       }
 
       body.readable-contrast-static *:focus {

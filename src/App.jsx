@@ -75,6 +75,10 @@ function isPausedTabUrl(tabUrl) {
   }
 }
 
+function isReaderTabUrl(tabUrl) {
+  return Boolean(tabUrl && tabUrl.startsWith(chrome.runtime.getURL('reader.html')));
+}
+
 function isDisabledDomain(hostname, disabledSites) {
   return disabledSites.some((site) => hostMatches(hostname, site.toLowerCase()));
 }
@@ -86,16 +90,44 @@ function App() {
   const [activeTabId, setActiveTabId] = useState(null);
   const [isUnsupportedPage, setIsUnsupportedPage] = useState(false);
   const [isPausedSite, setIsPausedSite] = useState(false);
+  const [isReaderPage, setIsReaderPage] = useState(false);
   const [messageError, setMessageError] = useState('');
   const saveTimer = useRef(null);
-  const fontScaleMessageFrame = useRef(null);
-  const pendingFontScaleSettings = useRef(null);
+  const pendingSavedSettings = useRef({});
+  const settingsMessageFrame = useRef(null);
+  const pendingSettingsMessage = useRef(null);
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tab = tabs[0];
 
-      if (!tab || !isSupportedTabUrl(tab.url)) {
+      if (!tab) {
+        setIsUnsupportedPage(true);
+        chrome.storage.sync.get(DEFAULT_SETTINGS, (result) => {
+          setSettings(result);
+        });
+        return;
+      }
+
+      const isReader = isReaderTabUrl(tab.url);
+      if (isReader) {
+        const readerUrl = new URL(tab.url);
+        const originalUrl = readerUrl.searchParams.get('url') || '';
+        const originalDomain = originalUrl ? new URL(originalUrl).hostname : '';
+
+        setActiveTabId(tab.id);
+        setCurrentDomain(originalDomain);
+        setIsReaderPage(true);
+        setIsUnsupportedPage(false);
+        setIsPausedSite(false);
+
+        chrome.storage.sync.get(DEFAULT_SETTINGS, (result) => {
+          setSettings(result);
+        });
+        return;
+      }
+
+      if (!isSupportedTabUrl(tab.url)) {
         setIsUnsupportedPage(true);
         chrome.storage.sync.get(DEFAULT_SETTINGS, (result) => {
           setSettings(result);
@@ -107,6 +139,7 @@ function App() {
       const domain = url.hostname;
       setActiveTabId(tab.id);
       setCurrentDomain(domain);
+      setIsReaderPage(false);
       setIsPausedSite(isPausedTabUrl(tab.url));
 
       chrome.storage.sync.get(
@@ -127,26 +160,35 @@ function App() {
         clearTimeout(saveTimer.current);
       }
 
-      if (fontScaleMessageFrame.current !== null) {
-        cancelAnimationFrame(fontScaleMessageFrame.current);
+      pendingSavedSettings.current = {};
+
+      if (settingsMessageFrame.current !== null) {
+        cancelAnimationFrame(settingsMessageFrame.current);
       }
 
-      pendingFontScaleSettings.current = null;
+      pendingSettingsMessage.current = null;
     };
   }, []);
 
   const saveSettings = (nextSettings) => {
+    pendingSavedSettings.current = {
+      ...pendingSavedSettings.current,
+      ...nextSettings,
+    };
+
     if (saveTimer.current) {
       clearTimeout(saveTimer.current);
     }
 
     saveTimer.current = setTimeout(() => {
-      chrome.storage.sync.set(nextSettings);
+      const settingsToSave = pendingSavedSettings.current;
+      pendingSavedSettings.current = {};
+      chrome.storage.sync.set(settingsToSave);
     }, 150);
   };
 
   const sendSettingsToTab = (nextSettings) => {
-    if (activeTabId === null || isUnsupportedPage || isSiteDisabled || isPausedSite) return;
+    if (activeTabId === null || isUnsupportedPage || isSiteDisabled || isPausedSite || isReaderPage) return;
 
     const message = {
       action: 'updateSettings',
@@ -189,25 +231,25 @@ function App() {
     sendMessage(true);
   };
 
-  const cancelScheduledFontScaleMessage = () => {
-    if (fontScaleMessageFrame.current !== null) {
-      cancelAnimationFrame(fontScaleMessageFrame.current);
-      fontScaleMessageFrame.current = null;
+  const cancelScheduledSettingsMessage = () => {
+    if (settingsMessageFrame.current !== null) {
+      cancelAnimationFrame(settingsMessageFrame.current);
+      settingsMessageFrame.current = null;
     }
 
-    pendingFontScaleSettings.current = null;
+    pendingSettingsMessage.current = null;
   };
 
-  const scheduleFontScaleMessage = (nextSettings) => {
-    pendingFontScaleSettings.current = nextSettings;
+  const scheduleSettingsMessage = (nextSettings) => {
+    pendingSettingsMessage.current = nextSettings;
 
-    if (fontScaleMessageFrame.current !== null) return;
+    if (settingsMessageFrame.current !== null) return;
 
-    fontScaleMessageFrame.current = requestAnimationFrame(() => {
-      fontScaleMessageFrame.current = null;
+    settingsMessageFrame.current = requestAnimationFrame(() => {
+      settingsMessageFrame.current = null;
 
-      const settingsToSend = pendingFontScaleSettings.current;
-      pendingFontScaleSettings.current = null;
+      const settingsToSend = pendingSettingsMessage.current;
+      pendingSettingsMessage.current = null;
 
       if (settingsToSend) {
         sendSettingsToTab(settingsToSend);
@@ -217,18 +259,75 @@ function App() {
 
   const updateSettings = (partialSettings) => {
     const nextSettings = { ...settings, ...partialSettings };
-    const isFontSizeOnlyUpdate = Object.keys(partialSettings).length === 1 && "fontSize" in partialSettings;
 
     setSettings(nextSettings);
     saveSettings(partialSettings);
+    scheduleSettingsMessage(nextSettings);
+  };
 
-    if (isFontSizeOnlyUpdate) {
-      scheduleFontScaleMessage(nextSettings);
+  const openReaderMode = async () => {
+    if (activeTabId === null || isUnsupportedPage || isReaderPage) return;
+
+    setMessageError('');
+
+    const executeScript = (details) =>
+      new Promise((resolve, reject) => {
+        chrome.scripting.executeScript(details, (results) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+
+          resolve(results);
+        });
+      });
+
+    try {
+      await executeScript({
+        target: { tabId: activeTabId },
+        files: ['reader-extract.js'],
+      });
+
+      const results = await executeScript({
+        target: { tabId: activeTabId },
+        func: () => globalThis.__readableExtractReaderArticle?.() || {
+          ok: false,
+          error: 'Reader Mode could not start on this page.',
+        },
+      });
+
+      const extraction = results?.[0]?.result;
+      if (!extraction?.ok) {
+        setMessageError(extraction?.error || 'Reader Mode could not read this page.');
+        return;
+      }
+
+      const key = `readableReader:${activeTabId}`;
+      chrome.storage.session.set({ [key]: extraction.article }, () => {
+        if (chrome.runtime.lastError) {
+          setMessageError('Reader Mode could not save this article.');
+          return;
+        }
+
+        chrome.tabs.update(activeTabId, {
+          url: chrome.runtime.getURL(
+            `reader.html?id=${activeTabId}&url=${encodeURIComponent(extraction.article.url)}`
+          ),
+        });
+      });
+    } catch (error) {
+      setMessageError(error.message || 'Reader Mode could not run on this page.');
+    }
+  };
+
+  const resetSettings = () => {
+    setSettings(DEFAULT_SETTINGS);
+    chrome.storage.sync.set(DEFAULT_SETTINGS);
+    cancelScheduledSettingsMessage();
+    if (isReaderPage) {
       return;
     }
-
-    cancelScheduledFontScaleMessage();
-    sendSettingsToTab(nextSettings);
+    sendSettingsToTab(DEFAULT_SETTINGS);
   };
 
   const toggleSiteDisable = (checked) => {
@@ -251,14 +350,8 @@ function App() {
     });
   };
 
-  const resetSettings = () => {
-    setSettings(DEFAULT_SETTINGS);
-    chrome.storage.sync.set(DEFAULT_SETTINGS);
-    cancelScheduledFontScaleMessage();
-    sendSettingsToTab(DEFAULT_SETTINGS);
-  };
-
   const controlsDisabled = isUnsupportedPage || isSiteDisabled || isPausedSite;
+  const readerModeDisabled = isUnsupportedPage || isSiteDisabled || isReaderPage || activeTabId === null;
   const fontScaleMax = settings.isDyslexia ? 1.35 : 2;
   const letterSpacingMax = settings.isDyslexia ? 0.4 : 0.5;
 
@@ -534,6 +627,15 @@ function App() {
             </>
           )}
         </section>
+
+        <button
+          type="button"
+          className="reader-button"
+          disabled={readerModeDisabled}
+          onClick={openReaderMode}
+        >
+          Reader mode
+        </button>
 
         <button
           type="button"

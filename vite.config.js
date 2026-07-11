@@ -48,6 +48,15 @@ async function buildContentScript(distRoot) {
     target: 'chrome102',
     legalComments: 'eof',
   })
+
+  await buildWithEsbuild({
+    entryPoints: ['src/reader-extract.js'],
+    outfile: join(distRoot, 'reader-extract.js'),
+    bundle: true,
+    format: 'iife',
+    target: 'chrome102',
+    legalComments: 'eof',
+  })
 }
 
 async function removeByName(root, fileNameToRemove) {
@@ -78,4 +87,12 @@ async function removeByName(root, fileNameToRemove) {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), cleanExtensionBuild()],
+  build: {
+    rollupOptions: {
+      input: {
+        popup: 'index.html',
+        reader: 'reader.html',
+      },
+    },
+  },
 })

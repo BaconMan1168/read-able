@@ -1,0 +1,145 @@
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/OpenDyslexic/compiled/OpenDyslexic-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  size-adjust: 93%;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/fonts/OpenDyslexic/compiled/OpenDyslexic-Bold.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+  size-adjust: 93%;
+}
+
+:root {
+  --reader-bg: #f7f7f2;
+  --reader-text: #24251f;
+  --reader-link: #175ea8;
+  --reader-accent: #2f6f9f;
+  --reader-font-size: 18px;
+  --reader-letter-spacing: 0em;
+  --reader-line-height: 1.5;
+  color: var(--reader-text);
+  background: var(--reader-bg);
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--reader-bg);
+  color: var(--reader-text);
+}
+
+body.reader-font-dyslexic {
+  font-family: 'OpenDyslexic', Arial, sans-serif;
+}
+
+body.reader-contrast {
+  color-scheme: dark;
+}
+
+.reader-shell {
+  width: min(100% - 32px, 760px);
+  margin: 0 auto;
+  padding: 32px 0 56px;
+}
+
+.reader-state {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  color: var(--reader-text);
+  font: 600 16px/1.4 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.reader-source {
+  display: inline-block;
+  max-width: 100%;
+  margin-bottom: 18px;
+  overflow: hidden;
+  color: var(--reader-link);
+  font: 650 0.86rem/1.3 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+h1 {
+  margin: 0 0 10px;
+  color: var(--reader-text);
+  font-size: clamp(2rem, 8vw, 3.2rem);
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1.08;
+}
+
+.reader-meta {
+  margin: 0 0 28px;
+  color: color-mix(in srgb, var(--reader-text), var(--reader-bg) 28%);
+  font: 600 0.92rem/1.4 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.reader-content {
+  color: var(--reader-text);
+  font-size: var(--reader-font-size);
+  letter-spacing: var(--reader-letter-spacing);
+  line-height: var(--reader-line-height);
+  transition:
+    font-size 100ms ease-out,
+    letter-spacing 100ms ease-out,
+    line-height 100ms ease-out;
+}
+
+.reader-content :is(p, li, blockquote, figcaption, caption, td, th) {
+  line-height: var(--reader-line-height);
+}
+
+.reader-content :is(p, ul, ol, blockquote, pre, table, figure) {
+  margin: 0 0 1.15em;
+}
+
+.reader-content :is(h2, h3, h4, h5, h6) {
+  margin: 1.55em 0 0.55em;
+  color: var(--reader-text);
+  line-height: 1.2;
+}
+
+.reader-content a {
+  color: var(--reader-link);
+  text-decoration-color: var(--reader-accent);
+  text-underline-offset: 0.18em;
+}
+
+.reader-content img,
+.reader-content video,
+.reader-content svg,
+.reader-content iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+.reader-content pre,
+.reader-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.reader-content pre {
+  overflow: auto;
+  padding: 12px;
+  background: color-mix(in srgb, var(--reader-text), var(--reader-bg) 90%);
+}
+
+@media (max-width: 520px) {
+  .reader-shell {
+    width: min(100% - 24px, 760px);
+    padding-top: 22px;
+  }
+}

@@ -215,6 +215,7 @@ input:checked + .slider:before {
   background: #ffffff;
 }
 
+.reader-button,
 .reset-button {
   width: 100%;
   min-height: 38px;
@@ -230,15 +231,28 @@ input:checked + .slider:before {
   transition: background-color 180ms ease, border-color 180ms ease, transform 120ms ease;
 }
 
+.reader-button {
+  border-color: #20211d;
+  background: #20211d;
+  color: #ffffff;
+}
+
+.reader-button:hover:not(:disabled) {
+  border-color: #2f332d;
+  background: #2f332d;
+}
+
 .reset-button:hover:not(:disabled) {
   border-color: #b8c4d4;
   background: #eef6ff;
 }
 
+.reader-button:active:not(:disabled),
 .reset-button:active:not(:disabled) {
   transform: translateY(1px);
 }
 
+.reader-button:disabled,
 .reset-button:disabled,
 input:disabled,
 select:disabled {
