@@ -1,6 +1,7 @@
 import {
   disable as disableDarkReader,
   enable as enableDarkReader,
+  setFetchMethod as setDarkReaderFetchMethod,
 } from "darkreader";
 
 const DEFAULT_STATE = {
@@ -85,7 +86,8 @@ const HIGH_CONTRAST_FIXES = {
 `,
   ignoreInlineStyle: [".readable-reading-aid", ".readable-reading-aid *"],
   ignoreImageAnalysis: [".readable-reading-aid", ".readable-reading-aid *"],
-  disableStyleSheetsProxy: false,
+  disableStyleSheetsProxy: true,
+  disableCustomElementRegistryProxy: true,
   ignoreCSSUrl: [],
 };
 
@@ -177,6 +179,8 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   let focusBottomElement = null;
   let observer = null;
   let isHighContrastApplied = false;
+  let activeContrastEngine = "none";
+  let isDarkReaderFetchConfigured = false;
   const pendingAddedElements = new Set();
 
   function ensureInitialized() {
@@ -807,10 +811,40 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     if (isHighContrastApplied) return;
 
     try {
-      enableDarkReader(HIGH_CONTRAST_THEME, HIGH_CONTRAST_FIXES);
+      if (!isDarkReaderFetchConfigured) {
+        setDarkReaderFetchMethod(window.fetch.bind(window));
+        isDarkReaderFetchConfigured = true;
+      }
+
+      preventDarkReaderProxyScript(() => {
+        enableDarkReader(HIGH_CONTRAST_THEME, HIGH_CONTRAST_FIXES);
+      });
       isHighContrastApplied = true;
     } catch (error) {
       console.warn("ReadAble high contrast could not be enabled.", error);
+    }
+  }
+
+  function preventDarkReaderProxyScript(callback) {
+    if (!document.head) {
+      callback();
+      return;
+    }
+
+    const insertBefore = document.head.insertBefore;
+
+    document.head.insertBefore = (node, child) => {
+      if (node instanceof HTMLScriptElement && node.classList.contains("darkreader--proxy")) {
+        return node;
+      }
+
+      return insertBefore.call(document.head, node, child);
+    };
+
+    try {
+      callback();
+    } finally {
+      document.head.insertBefore = insertBefore;
     }
   }
 
@@ -853,24 +887,34 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   }
 
   function applyHighContrast() {
-    disableHighContrast();
-    clearReadableContrastClasses();
-
     if (!state.isContrast) {
+      disableHighContrast();
+      clearReadableContrastClasses();
+      activeContrastEngine = "none";
       return;
     }
 
     if (state.contrastMode === "dark-reader") {
+      if (activeContrastEngine !== "dark-reader") {
+        clearReadableContrastClasses();
+      }
       enableHighContrast();
+      activeContrastEngine = "dark-reader";
       return;
+    }
+
+    if (activeContrastEngine === "dark-reader") {
+      disableHighContrast();
     }
 
     if (state.contrastMode === "custom") {
       applyStaticContrast(getCustomContrastColors());
+      activeContrastEngine = "custom";
       return;
     }
 
     applyStaticContrast(SEMANTIC_CONTRAST_COLORS);
+    activeContrastEngine = "semantic";
   }
 
   function applySettings(changedKeys, { smoothText = false } = {}) {
@@ -976,10 +1020,16 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (!message || typeof message.action !== "string") {
+      return false;
+    }
+
     if (message.action === "updateSettings") {
       updateState(message.settings, { smoothText: true });
-      sendResponse({ ok: true });
-      return;
+      if (typeof sendResponse === "function") {
+        sendResponse({ ok: true });
+      }
+      return false;
     }
 
     if (message.action === "toggleDyslexicFont") {
@@ -998,7 +1048,11 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       updateState({ lineSpacing: message.lineSpacing }, { smoothText: true });
     }
 
-    sendResponse({ ok: true });
+    if (typeof sendResponse === "function") {
+      sendResponse({ ok: true });
+    }
+
+    return false;
   });
 
   chrome.storage.sync.get({ ...DEFAULT_STATE, disabledSites: [] }, (storedState) => {
