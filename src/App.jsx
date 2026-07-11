@@ -79,6 +79,16 @@ function isReaderTabUrl(tabUrl) {
   return Boolean(tabUrl && tabUrl.startsWith(chrome.runtime.getURL('reader.html')));
 }
 
+function getReaderOriginalDomain(tabUrl) {
+  try {
+    const readerUrl = new URL(tabUrl);
+    const originalUrl = readerUrl.searchParams.get('url') || '';
+    return originalUrl ? new URL(originalUrl).hostname : '';
+  } catch {
+    return '';
+  }
+}
+
 function isDisabledDomain(hostname, disabledSites) {
   return disabledSites.some((site) => hostMatches(hostname, site.toLowerCase()));
 }
@@ -111,12 +121,8 @@ function App() {
 
       const isReader = isReaderTabUrl(tab.url);
       if (isReader) {
-        const readerUrl = new URL(tab.url);
-        const originalUrl = readerUrl.searchParams.get('url') || '';
-        const originalDomain = originalUrl ? new URL(originalUrl).hostname : '';
-
         setActiveTabId(tab.id);
-        setCurrentDomain(originalDomain);
+        setCurrentDomain(getReaderOriginalDomain(tab.url));
         setIsReaderPage(true);
         setIsUnsupportedPage(false);
         setIsPausedSite(false);
@@ -386,7 +392,7 @@ function App() {
                 id="siteToggle"
                 type="checkbox"
                 checked={isSiteDisabled || isPausedSite}
-                disabled={isUnsupportedPage || isPausedSite || !currentDomain}
+                disabled={isUnsupportedPage || isPausedSite || isReaderPage || !currentDomain}
                 onChange={(e) => toggleSiteDisable(e.target.checked)}
                 aria-checked={isSiteDisabled || isPausedSite}
                 aria-labelledby="siteToggleLabel"
