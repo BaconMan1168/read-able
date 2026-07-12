@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { StrictMode, useEffect, useMemo, useState } from 'react';
+import { StrictMode, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './reader.css';
 
@@ -21,9 +21,54 @@ const DEFAULT_SETTINGS = {
   readingAidColor: '#ffe066',
 };
 
+const SITE_SETTINGS_KEY = 'siteSettings';
+const STORAGE_DEFAULTS = {
+  ...DEFAULT_SETTINGS,
+  [SITE_SETTINGS_KEY]: {},
+};
+const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS);
+
 function getReaderKey() {
   const params = new URLSearchParams(window.location.search);
   return params.get('id') ? `readableReader:${params.get('id')}` : '';
+}
+
+function getHostname(value) {
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function normalizeSettings(settings = {}) {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...settings,
+  };
+}
+
+function getGlobalSettings(storedSettings) {
+  const settings = {};
+
+  SETTINGS_KEYS.forEach((key) => {
+    settings[key] = storedSettings[key];
+  });
+
+  return normalizeSettings(settings);
+}
+
+function normalizeSiteSettings(siteSettings) {
+  return siteSettings && typeof siteSettings === 'object' && !Array.isArray(siteSettings)
+    ? siteSettings
+    : {};
+}
+
+function getEffectiveSettings(storedSettings, domain) {
+  const storedSiteSettings = normalizeSiteSettings(storedSettings[SITE_SETTINGS_KEY]);
+  const domainSettings = domain ? storedSiteSettings[domain] : null;
+
+  return domainSettings ? normalizeSettings(domainSettings) : getGlobalSettings(storedSettings);
 }
 
 function getContrastColors(settings) {
@@ -107,9 +152,16 @@ function ReaderApp() {
   const [article, setArticle] = useState(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [error, setError] = useState('');
+  const currentDomain = useRef('');
 
   useEffect(() => {
     const readerKey = getReaderKey();
+
+    const loadSettings = () => {
+      chrome.storage.sync.get(STORAGE_DEFAULTS, (storedSettings) => {
+        setSettings(getEffectiveSettings(storedSettings, currentDomain.current));
+      });
+    };
 
     if (!readerKey) {
       setError('Reader Mode could not find this article.');
@@ -124,25 +176,21 @@ function ReaderApp() {
         return;
       }
 
+      currentDomain.current = getHostname(storedArticle.url);
       setArticle(storedArticle);
-    });
-
-    chrome.storage.sync.get(DEFAULT_SETTINGS, (storedSettings) => {
-      setSettings(storedSettings);
+      loadSettings();
     });
 
     const handleStorageChange = (changes, areaName) => {
       if (areaName !== 'sync') return;
 
-      setSettings((currentSettings) => {
-        const nextSettings = { ...currentSettings };
-        Object.entries(changes).forEach(([key, change]) => {
-          if (key in DEFAULT_SETTINGS) {
-            nextSettings[key] = change.newValue;
-          }
-        });
-        return nextSettings;
-      });
+      const hasSettingsChange = Object.keys(changes).some(
+        (key) => SETTINGS_KEYS.includes(key) || key === SITE_SETTINGS_KEY
+      );
+
+      if (hasSettingsChange) {
+        loadSettings();
+      }
     };
 
     chrome.storage.onChanged.addListener(handleStorageChange);

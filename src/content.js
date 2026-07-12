@@ -22,6 +22,12 @@ const DEFAULT_STATE = {
   readingAidColor: "#ffe066",
 };
 
+const SITE_SETTINGS_KEY = "siteSettings";
+const STORAGE_DEFAULTS = {
+  ...DEFAULT_STATE,
+  [SITE_SETTINGS_KEY]: {},
+  disabledSites: [],
+};
 const PAUSED_SITE_RULES = [
   { host: "docs.google.com" },
   { host: "drive.google.com" },
@@ -139,6 +145,47 @@ function isUserDisabledSite(disabledSites) {
     const hostname = getHostname(locationValue);
     return disabledHosts.some((disabledHost) => hostMatches(hostname, disabledHost));
   });
+}
+
+function normalizeSettings(settings = {}) {
+  return {
+    ...DEFAULT_STATE,
+    ...settings,
+  };
+}
+
+function getGlobalSettings(storedState) {
+  const settings = {};
+
+  Object.keys(DEFAULT_STATE).forEach((key) => {
+    settings[key] = storedState[key];
+  });
+
+  return normalizeSettings(settings);
+}
+
+function normalizeSiteSettings(siteSettings) {
+  return siteSettings && typeof siteSettings === "object" && !Array.isArray(siteSettings)
+    ? siteSettings
+    : {};
+}
+
+function getSiteSettingsForFrame(siteSettings) {
+  const storedSiteSettings = normalizeSiteSettings(siteSettings);
+
+  for (const locationValue of getFrameLocations()) {
+    const hostname = getHostname(locationValue);
+
+    if (hostname && storedSiteSettings[hostname]) {
+      return normalizeSettings(storedSiteSettings[hostname]);
+    }
+  }
+
+  return null;
+}
+
+function getEffectiveSettings(storedState) {
+  return getSiteSettingsForFrame(storedState[SITE_SETTINGS_KEY]) || getGlobalSettings(storedState);
 }
 
 function hasActiveSettings(settings) {
@@ -1068,13 +1115,13 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     return false;
   });
 
-  chrome.storage.sync.get({ ...DEFAULT_STATE, disabledSites: [] }, (storedState) => {
-    const { disabledSites, ...settings } = storedState;
+  chrome.storage.sync.get(STORAGE_DEFAULTS, (storedState) => {
+    const { disabledSites } = storedState;
 
     if (isUserDisabledSite(disabledSites)) {
       return;
     }
 
-    updateState(settings);
+    updateState(getEffectiveSettings(storedState));
   });
 }

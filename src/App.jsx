@@ -19,6 +19,15 @@ const DEFAULT_SETTINGS = {
   readingAidColor: '#ffe066',
 };
 
+const SITE_SETTINGS_KEY = 'siteSettings';
+const SETTINGS_STORAGE_DEFAULTS = {
+  ...DEFAULT_SETTINGS,
+  [SITE_SETTINGS_KEY]: {},
+};
+const SETTINGS_WITH_SITE_STATUS_DEFAULTS = {
+  ...SETTINGS_STORAGE_DEFAULTS,
+  disabledSites: [],
+};
 const SUPPORTED_PROTOCOLS = ['http:', 'https:', 'file:'];
 const PAUSED_SITE_RULES = [
   { host: 'docs.google.com' },
@@ -93,8 +102,38 @@ function isDisabledDomain(hostname, disabledSites) {
   return disabledSites.some((site) => hostMatches(hostname, site.toLowerCase()));
 }
 
+function getSiteSettingsKey(hostname) {
+  return hostname.toLowerCase();
+}
+
+function normalizeSettings(settings = {}) {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...settings,
+  };
+}
+
+function getGlobalSettings(storedSettings) {
+  const settings = {};
+
+  Object.keys(DEFAULT_SETTINGS).forEach((key) => {
+    settings[key] = storedSettings[key];
+  });
+
+  return normalizeSettings(settings);
+}
+
+function normalizeSiteSettings(siteSettings) {
+  return siteSettings && typeof siteSettings === 'object' && !Array.isArray(siteSettings)
+    ? siteSettings
+    : {};
+}
+
 function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [globalSettings, setGlobalSettings] = useState(DEFAULT_SETTINGS);
+  const [siteSettings, setSiteSettings] = useState({});
+  const [preferenceScope, setPreferenceScope] = useState('global');
   const [isSiteDisabled, setIsSiteDisabled] = useState(false);
   const [currentDomain, setCurrentDomain] = useState('');
   const [activeTabId, setActiveTabId] = useState(null);
@@ -108,36 +147,45 @@ function App() {
   const pendingSettingsMessage = useRef(null);
 
   useEffect(() => {
+    const loadSettings = (domain = '') => {
+      chrome.storage.sync.get(SETTINGS_STORAGE_DEFAULTS, (result) => {
+        const storedGlobalSettings = getGlobalSettings(result);
+        const storedSiteSettings = normalizeSiteSettings(result[SITE_SETTINGS_KEY]);
+        const domainKey = domain ? getSiteSettingsKey(domain) : '';
+        const domainSettings = domainKey ? storedSiteSettings[domainKey] : null;
+
+        setGlobalSettings(storedGlobalSettings);
+        setSiteSettings(storedSiteSettings);
+        setPreferenceScope(domainSettings ? 'site' : 'global');
+        setSettings(domainSettings ? normalizeSettings(domainSettings) : storedGlobalSettings);
+      });
+    };
+
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tab = tabs[0];
 
       if (!tab) {
         setIsUnsupportedPage(true);
-        chrome.storage.sync.get(DEFAULT_SETTINGS, (result) => {
-          setSettings(result);
-        });
+        loadSettings();
         return;
       }
 
       const isReader = isReaderTabUrl(tab.url);
       if (isReader) {
+        const originalDomain = getReaderOriginalDomain(tab.url);
         setActiveTabId(tab.id);
-        setCurrentDomain(getReaderOriginalDomain(tab.url));
+        setCurrentDomain(originalDomain);
         setIsReaderPage(true);
         setIsUnsupportedPage(false);
         setIsPausedSite(false);
 
-        chrome.storage.sync.get(DEFAULT_SETTINGS, (result) => {
-          setSettings(result);
-        });
+        loadSettings(originalDomain);
         return;
       }
 
       if (!isSupportedTabUrl(tab.url)) {
         setIsUnsupportedPage(true);
-        chrome.storage.sync.get(DEFAULT_SETTINGS, (result) => {
-          setSettings(result);
-        });
+        loadSettings();
         return;
       }
 
@@ -149,13 +197,17 @@ function App() {
       setIsPausedSite(isPausedTabUrl(tab.url));
 
       chrome.storage.sync.get(
-        {
-          ...DEFAULT_SETTINGS,
-          disabledSites: [],
-        },
+        SETTINGS_WITH_SITE_STATUS_DEFAULTS,
         (result) => {
-          const { disabledSites, ...storedSettings } = result;
-          setSettings(storedSettings);
+          const { disabledSites } = result;
+          const storedGlobalSettings = getGlobalSettings(result);
+          const storedSiteSettings = normalizeSiteSettings(result[SITE_SETTINGS_KEY]);
+          const domainSettings = storedSiteSettings[getSiteSettingsKey(domain)];
+
+          setGlobalSettings(storedGlobalSettings);
+          setSiteSettings(storedSiteSettings);
+          setPreferenceScope(domainSettings ? 'site' : 'global');
+          setSettings(domainSettings ? normalizeSettings(domainSettings) : storedGlobalSettings);
           setIsSiteDisabled(isDisabledDomain(domain, disabledSites));
         }
       );
@@ -267,8 +319,49 @@ function App() {
     const nextSettings = { ...settings, ...partialSettings };
 
     setSettings(nextSettings);
-    saveSettings(partialSettings);
+
+    if (preferenceScope === 'site' && currentDomain) {
+      const nextSiteSettings = {
+        ...siteSettings,
+        [getSiteSettingsKey(currentDomain)]: nextSettings,
+      };
+
+      setSiteSettings(nextSiteSettings);
+      saveSettings({ [SITE_SETTINGS_KEY]: nextSiteSettings });
+    } else {
+      setGlobalSettings({ ...globalSettings, ...partialSettings });
+      saveSettings(partialSettings);
+    }
+
     scheduleSettingsMessage(nextSettings);
+  };
+
+  const updatePreferenceScope = (nextScope) => {
+    if (nextScope === preferenceScope || !currentDomain) return;
+
+    const domainKey = getSiteSettingsKey(currentDomain);
+
+    if (nextScope === 'site') {
+      const nextSiteSettings = {
+        ...siteSettings,
+        [domainKey]: settings,
+      };
+
+      setPreferenceScope('site');
+      setSiteSettings(nextSiteSettings);
+      chrome.storage.sync.set({ [SITE_SETTINGS_KEY]: nextSiteSettings });
+      scheduleSettingsMessage(settings);
+      return;
+    }
+
+    const nextSiteSettings = { ...siteSettings };
+    delete nextSiteSettings[domainKey];
+
+    setPreferenceScope('global');
+    setSiteSettings(nextSiteSettings);
+    setSettings(globalSettings);
+    chrome.storage.sync.set({ [SITE_SETTINGS_KEY]: nextSiteSettings });
+    scheduleSettingsMessage(globalSettings);
   };
 
   const openReaderMode = async () => {
@@ -328,8 +421,21 @@ function App() {
 
   const resetSettings = () => {
     setSettings(DEFAULT_SETTINGS);
-    chrome.storage.sync.set(DEFAULT_SETTINGS);
     cancelScheduledSettingsMessage();
+
+    if (preferenceScope === 'site' && currentDomain) {
+      const nextSiteSettings = {
+        ...siteSettings,
+        [getSiteSettingsKey(currentDomain)]: DEFAULT_SETTINGS,
+      };
+
+      setSiteSettings(nextSiteSettings);
+      chrome.storage.sync.set({ [SITE_SETTINGS_KEY]: nextSiteSettings });
+    } else {
+      setGlobalSettings(DEFAULT_SETTINGS);
+      chrome.storage.sync.set(DEFAULT_SETTINGS);
+    }
+
     if (isReaderPage) {
       return;
     }
@@ -383,6 +489,34 @@ function App() {
             {messageError}
           </p>
         )}
+
+        <section className="scope-section" aria-label="Preference scope">
+          <span>Apply changes to</span>
+          <div className="scope-options" role="radiogroup" aria-label="Preference scope">
+            <label>
+              <input
+                type="radio"
+                name="preferenceScope"
+                value="global"
+                checked={preferenceScope === 'global'}
+                disabled={isUnsupportedPage || !currentDomain}
+                onChange={() => updatePreferenceScope('global')}
+              />
+              <span>All sites</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="preferenceScope"
+                value="site"
+                checked={preferenceScope === 'site'}
+                disabled={isUnsupportedPage || isPausedSite || !currentDomain}
+                onChange={() => updatePreferenceScope('site')}
+              />
+              <span>This site</span>
+            </label>
+          </div>
+        </section>
 
         <section className="switch-section" aria-label="Accessibility toggles">
           <div className="switch-group">
@@ -649,7 +783,7 @@ function App() {
           disabled={controlsDisabled}
           onClick={resetSettings}
         >
-          Reset all
+          {preferenceScope === 'site' ? 'Reset site' : 'Reset all'}
         </button>
       </main>
     </>
