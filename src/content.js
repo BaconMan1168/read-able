@@ -209,7 +209,6 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   const TEXT_ADJUSTMENT_KEYS = ["fontSize", "letterSpacing", "lineSpacing"];
   const TEXT_ADJUSTMENT_TRANSITION_MS = 180;
   const FONT_SCALE_VALUE = "calc(var(--readable-base-font-size) * var(--readable-font-scale))";
-  let applyFrame = null;
   let observerFrame = null;
   let pointerFrame = null;
   let textAdjustmentTimer = null;
@@ -1029,23 +1028,18 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     }
   }
 
-  function scheduleApplySettings() {
+  function applyPendingSettings() {
     if (!hasActiveSettings(state) && !isInitialized) return;
 
     ensureInitialized();
 
-    if (applyFrame !== null) {
-      cancelAnimationFrame(applyFrame);
-    }
-
-    applyFrame = requestAnimationFrame(() => {
-      applyFrame = null;
-      const changedKeys = new Set(pendingChangedKeys);
-      const smoothText = shouldSmoothTextAdjustment;
-      pendingChangedKeys.clear();
-      shouldSmoothTextAdjustment = false;
-      applySettings(changedKeys, { smoothText });
-    });
+    // Apply synchronously on receipt; popup-side messages are already
+    // rAF-coalesced, so a second animation frame here only adds latency.
+    const changedKeys = new Set(pendingChangedKeys);
+    const smoothText = shouldSmoothTextAdjustment;
+    pendingChangedKeys.clear();
+    shouldSmoothTextAdjustment = false;
+    applySettings(changedKeys, { smoothText });
   }
 
   function updateState(nextState, { smoothText = false } = {}) {
@@ -1066,7 +1060,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
 
     if (hasChangedState) {
       shouldSmoothTextAdjustment = shouldSmoothTextAdjustment || (smoothText && hasTextAdjustmentChange);
-      scheduleApplySettings();
+      applyPendingSettings();
     }
   }
 
