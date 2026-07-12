@@ -307,7 +307,6 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
 
       body.readable-text-adjusting :is(p, span, h1, h2, h3, h4, h5, h6, li, a, label, td, th, blockquote, figcaption, caption, legend, summary, dt, dd),
       body.readable-text-adjusting [style*="--readable-base-font-size"] {
-        will-change: font-size, line-height, letter-spacing;
         transition:
           font-size 140ms cubic-bezier(0.2, 0, 0, 1),
           line-height 140ms cubic-bezier(0.2, 0, 0, 1),
@@ -1091,7 +1090,9 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     }
 
     if (message.action === "updateSettings") {
-      updateState(message.settings, { smoothText: true });
+      // Only animate the text transition for discrete changes; live slider
+      // drags send smoothText:false so each frame applies instantly (see App.jsx).
+      updateState(message.settings, { smoothText: message.smoothText === true });
       if (typeof sendResponse === "function") {
         sendResponse({ ok: true });
       }
