@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ReadAble: Dyslexia Font & Reading Tools",
   "description": "Make websites easier to read with OpenDyslexic, a reading ruler, spacing controls, larger text, and high contrast.",
-  "version": "1.5.0",
+  "version": "2.0",
   "permissions": ["activeTab", "scripting", "storage"],
   "action": {
     "default_popup": "index.html"
