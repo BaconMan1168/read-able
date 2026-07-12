@@ -721,10 +721,10 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     if (!isFontScaleCachePrimed) {
       applyFontScaleToElements(getScalableElements());
       isFontScaleCachePrimed = true;
-      return;
     }
 
-    pruneOriginalFontSizes();
+    // Removed elements are pruned by the MutationObserver, so there is no need
+    // to walk the whole cache on every scale change.
   }
 
   function applyFontScaleToAddedElements(addedElements) {
