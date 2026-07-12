@@ -146,6 +146,9 @@ function App() {
   const pendingSavedSettings = useRef({});
   const settingsMessageFrame = useRef(null);
   const pendingSettingsMessage = useRef(null);
+  // True while a range slider thumb is being dragged, so text adjustments apply
+  // instantly on the page instead of animating a page-wide reflow every frame.
+  const sliderDraggingRef = useRef(false);
 
   useEffect(() => {
     const syncSettings = (nextSettings) => {
@@ -242,6 +245,21 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    // Clear the drag flag on release, including releases outside the slider.
+    const endSliderDrag = () => {
+      sliderDraggingRef.current = false;
+    };
+
+    window.addEventListener('pointerup', endSliderDrag);
+    window.addEventListener('pointercancel', endSliderDrag);
+
+    return () => {
+      window.removeEventListener('pointerup', endSliderDrag);
+      window.removeEventListener('pointercancel', endSliderDrag);
+    };
+  }, []);
+
   const saveSettings = (nextSettings) => {
     pendingSavedSettings.current = {
       ...pendingSavedSettings.current,
@@ -265,6 +283,9 @@ function App() {
     const message = {
       action: 'updateSettings',
       settings: nextSettings,
+      // Animate only when not actively dragging; read at send time because
+      // messages are rAF-batched and the drag may end before this fires.
+      smoothText: !sliderDraggingRef.current,
     };
 
     const sendMessage = (allowInject) => {
@@ -682,6 +703,7 @@ function App() {
               step="0.05"
               value={settings.fontSize}
               disabled={controlsDisabled}
+              onPointerDown={() => { sliderDraggingRef.current = true; }}
               onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })}
               className="range-slider"
               aria-valuemin={0.5}
@@ -702,6 +724,7 @@ function App() {
               step="0.01"
               value={settings.letterSpacing}
               disabled={controlsDisabled}
+              onPointerDown={() => { sliderDraggingRef.current = true; }}
               onChange={(e) => updateSettings({ letterSpacing: Number(e.target.value) })}
               className="range-slider"
               aria-valuemin={0}
@@ -722,6 +745,7 @@ function App() {
               step="0.05"
               value={settings.lineSpacing}
               disabled={controlsDisabled}
+              onPointerDown={() => { sliderDraggingRef.current = true; }}
               onChange={(e) => updateSettings({ lineSpacing: Number(e.target.value) })}
               className="range-slider"
               aria-valuemin={1}
