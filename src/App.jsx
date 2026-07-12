@@ -131,8 +131,6 @@ function normalizeSiteSettings(siteSettings) {
 
 function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [globalSettings, setGlobalSettings] = useState(DEFAULT_SETTINGS);
-  const [siteSettings, setSiteSettings] = useState({});
   const [preferenceScope, setPreferenceScope] = useState('global');
   const [isSiteDisabled, setIsSiteDisabled] = useState(false);
   const [currentDomain, setCurrentDomain] = useState('');
@@ -141,12 +139,28 @@ function App() {
   const [isPausedSite, setIsPausedSite] = useState(false);
   const [isReaderPage, setIsReaderPage] = useState(false);
   const [messageError, setMessageError] = useState('');
+  const settingsRef = useRef(DEFAULT_SETTINGS);
+  const globalSettingsRef = useRef(DEFAULT_SETTINGS);
+  const siteSettingsRef = useRef({});
   const saveTimer = useRef(null);
   const pendingSavedSettings = useRef({});
   const settingsMessageFrame = useRef(null);
   const pendingSettingsMessage = useRef(null);
 
   useEffect(() => {
+    const syncSettings = (nextSettings) => {
+      settingsRef.current = nextSettings;
+      setSettings(nextSettings);
+    };
+
+    const syncGlobalSettings = (nextSettings) => {
+      globalSettingsRef.current = nextSettings;
+    };
+
+    const syncSiteSettings = (nextSettings) => {
+      siteSettingsRef.current = nextSettings;
+    };
+
     const loadSettings = (domain = '') => {
       chrome.storage.sync.get(SETTINGS_STORAGE_DEFAULTS, (result) => {
         const storedGlobalSettings = getGlobalSettings(result);
@@ -154,10 +168,10 @@ function App() {
         const domainKey = domain ? getSiteSettingsKey(domain) : '';
         const domainSettings = domainKey ? storedSiteSettings[domainKey] : null;
 
-        setGlobalSettings(storedGlobalSettings);
-        setSiteSettings(storedSiteSettings);
+        syncGlobalSettings(storedGlobalSettings);
+        syncSiteSettings(storedSiteSettings);
         setPreferenceScope(domainSettings ? 'site' : 'global');
-        setSettings(domainSettings ? normalizeSettings(domainSettings) : storedGlobalSettings);
+        syncSettings(domainSettings ? normalizeSettings(domainSettings) : storedGlobalSettings);
       });
     };
 
@@ -204,10 +218,10 @@ function App() {
           const storedSiteSettings = normalizeSiteSettings(result[SITE_SETTINGS_KEY]);
           const domainSettings = storedSiteSettings[getSiteSettingsKey(domain)];
 
-          setGlobalSettings(storedGlobalSettings);
-          setSiteSettings(storedSiteSettings);
+          syncGlobalSettings(storedGlobalSettings);
+          syncSiteSettings(storedSiteSettings);
           setPreferenceScope(domainSettings ? 'site' : 'global');
-          setSettings(domainSettings ? normalizeSettings(domainSettings) : storedGlobalSettings);
+          syncSettings(domainSettings ? normalizeSettings(domainSettings) : storedGlobalSettings);
           setIsSiteDisabled(isDisabledDomain(domain, disabledSites));
         }
       );
@@ -316,20 +330,21 @@ function App() {
   };
 
   const updateSettings = (partialSettings) => {
-    const nextSettings = { ...settings, ...partialSettings };
+    const nextSettings = { ...settingsRef.current, ...partialSettings };
 
+    settingsRef.current = nextSettings;
     setSettings(nextSettings);
 
     if (preferenceScope === 'site' && currentDomain) {
       const nextSiteSettings = {
-        ...siteSettings,
+        ...siteSettingsRef.current,
         [getSiteSettingsKey(currentDomain)]: nextSettings,
       };
 
-      setSiteSettings(nextSiteSettings);
+      siteSettingsRef.current = nextSiteSettings;
       saveSettings({ [SITE_SETTINGS_KEY]: nextSiteSettings });
     } else {
-      setGlobalSettings({ ...globalSettings, ...partialSettings });
+      globalSettingsRef.current = { ...globalSettingsRef.current, ...partialSettings };
       saveSettings(partialSettings);
     }
 
@@ -343,25 +358,26 @@ function App() {
 
     if (nextScope === 'site') {
       const nextSiteSettings = {
-        ...siteSettings,
-        [domainKey]: settings,
+        ...siteSettingsRef.current,
+        [domainKey]: settingsRef.current,
       };
 
       setPreferenceScope('site');
-      setSiteSettings(nextSiteSettings);
+      siteSettingsRef.current = nextSiteSettings;
       chrome.storage.sync.set({ [SITE_SETTINGS_KEY]: nextSiteSettings });
-      scheduleSettingsMessage(settings);
+      scheduleSettingsMessage(settingsRef.current);
       return;
     }
 
-    const nextSiteSettings = { ...siteSettings };
+    const nextSiteSettings = { ...siteSettingsRef.current };
     delete nextSiteSettings[domainKey];
 
     setPreferenceScope('global');
-    setSiteSettings(nextSiteSettings);
-    setSettings(globalSettings);
+    siteSettingsRef.current = nextSiteSettings;
+    settingsRef.current = globalSettingsRef.current;
+    setSettings(globalSettingsRef.current);
     chrome.storage.sync.set({ [SITE_SETTINGS_KEY]: nextSiteSettings });
-    scheduleSettingsMessage(globalSettings);
+    scheduleSettingsMessage(globalSettingsRef.current);
   };
 
   const openReaderMode = async () => {
@@ -420,19 +436,20 @@ function App() {
   };
 
   const resetSettings = () => {
+    settingsRef.current = DEFAULT_SETTINGS;
     setSettings(DEFAULT_SETTINGS);
     cancelScheduledSettingsMessage();
 
     if (preferenceScope === 'site' && currentDomain) {
       const nextSiteSettings = {
-        ...siteSettings,
+        ...siteSettingsRef.current,
         [getSiteSettingsKey(currentDomain)]: DEFAULT_SETTINGS,
       };
 
-      setSiteSettings(nextSiteSettings);
+      siteSettingsRef.current = nextSiteSettings;
       chrome.storage.sync.set({ [SITE_SETTINGS_KEY]: nextSiteSettings });
     } else {
-      setGlobalSettings(DEFAULT_SETTINGS);
+      globalSettingsRef.current = DEFAULT_SETTINGS;
       chrome.storage.sync.set(DEFAULT_SETTINGS);
     }
 
@@ -517,6 +534,17 @@ function App() {
             </label>
           </div>
         </section>
+
+        <div className="reader-action-row">
+          <button
+            type="button"
+            className="reader-button"
+            disabled={readerModeDisabled}
+            onClick={openReaderMode}
+          >
+            Reader mode
+          </button>
+        </div>
 
         <section className="switch-section" aria-label="Accessibility toggles">
           <div className="switch-group">
@@ -767,15 +795,6 @@ function App() {
             </>
           )}
         </section>
-
-        <button
-          type="button"
-          className="reader-button"
-          disabled={readerModeDisabled}
-          onClick={openReaderMode}
-        >
-          Reader mode
-        </button>
 
         <button
           type="button"

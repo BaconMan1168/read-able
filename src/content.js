@@ -207,7 +207,8 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   const originalFontSizes = new Map();
   const isTopFrame = window.top === window;
   const TEXT_ADJUSTMENT_KEYS = ["fontSize", "letterSpacing", "lineSpacing"];
-  const TEXT_ADJUSTMENT_TRANSITION_MS = 140;
+  const TEXT_ADJUSTMENT_TRANSITION_MS = 180;
+  const FONT_SCALE_VALUE = "calc(var(--readable-base-font-size) * var(--readable-font-scale))";
   let applyFrame = null;
   let observerFrame = null;
   let pointerFrame = null;
@@ -265,6 +266,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
       :root {
         --a11y-letter-spacing: 0em;
         --a11y-line-height: normal;
+        --readable-font-scale: 1;
         --readable-contrast-background: #000000;
         --readable-contrast-text: #ffffff;
         --readable-contrast-link: #fffe00;
@@ -303,11 +305,13 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
         word-break: normal;
       }
 
-      body.readable-text-adjusting :is(p, span, h1, h2, h3, h4, h5, h6, li, a, label, td, th, blockquote, figcaption, caption, legend, summary, dt, dd) {
+      body.readable-text-adjusting :is(p, span, h1, h2, h3, h4, h5, h6, li, a, label, td, th, blockquote, figcaption, caption, legend, summary, dt, dd),
+      body.readable-text-adjusting [style*="--readable-base-font-size"] {
+        will-change: font-size, line-height, letter-spacing;
         transition:
-          font-size 100ms ease-out,
-          line-height 100ms ease-out,
-          letter-spacing 100ms ease-out;
+          font-size 140ms cubic-bezier(0.2, 0, 0, 1),
+          line-height 140ms cubic-bezier(0.2, 0, 0, 1),
+          letter-spacing 140ms cubic-bezier(0.2, 0, 0, 1);
       }
 
       body.font-dyslexic :is([contenteditable], [role="textbox"], input, textarea, select, pre, code, kbd, samp, .CodeMirror, .monaco-editor, .cm-editor, .ProseMirror, .ql-editor),
@@ -672,13 +676,16 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
 
   function restoreFontSize(el, original) {
     el.style.fontSize = original.inlineFontSize;
+    el.style.removeProperty("--readable-base-font-size");
   }
 
   function scaleFontSize(el, original) {
-    el.style.fontSize = `${original.baseSize * state.fontSize}px`;
+    el.style.setProperty("--readable-base-font-size", `${original.baseSize}px`);
+    el.style.fontSize = FONT_SCALE_VALUE;
   }
 
   function restoreFontSizes() {
+    document.documentElement.style.setProperty("--readable-font-scale", "1");
     originalFontSizes.forEach((original, el) => {
       restoreFontSize(el, original);
     });
@@ -705,6 +712,8 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   }
 
   function applyFontScale() {
+    document.documentElement.style.setProperty("--readable-font-scale", String(state.fontSize));
+
     if (state.fontSize === 1) {
       restoreFontSizes();
       return;
@@ -717,9 +726,6 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     }
 
     pruneOriginalFontSizes();
-    originalFontSizes.forEach((original, el) => {
-      scaleFontSize(el, original);
-    });
   }
 
   function applyFontScaleToAddedElements(addedElements) {

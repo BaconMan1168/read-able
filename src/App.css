@@ -132,6 +132,17 @@ main {
   opacity: 0.55;
 }
 
+.reader-action-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+
+.reader-action-row .reader-button {
+  width: auto;
+  min-width: 126px;
+}
+
 .switch {
   position: relative;
   display: inline-block;
