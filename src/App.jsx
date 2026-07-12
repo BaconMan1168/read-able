@@ -286,6 +286,7 @@ function App() {
       // Animate only when not actively dragging; read at send time because
       // messages are rAF-batched and the drag may end before this fires.
       smoothText: !sliderDraggingRef.current,
+      dragging: sliderDraggingRef.current,
     };
 
     const sendMessage = (allowInject) => {

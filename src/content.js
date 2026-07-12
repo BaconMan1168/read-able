@@ -214,6 +214,8 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   let textAdjustmentTimer = null;
   let pointerY = Math.round(window.innerHeight / 2);
   let shouldSmoothTextAdjustment = false;
+  let isSliderDragging = false;
+  let sliderDragEndTimer = null;
   let hasPendingRemovedElements = false;
   let isFontScaleCachePrimed = false;
   let isInitialized = false;
@@ -760,9 +762,35 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
   }
 
   function scheduleFontScaleMutationProcessing() {
-    if (observerFrame !== null) return;
+    // Hold off scaling newly added nodes until the drag ends, so getComputedStyle
+    // reflows from dynamic page content don't jank the in-progress drag.
+    if (isSliderDragging || observerFrame !== null) return;
 
     observerFrame = requestAnimationFrame(flushFontScaleMutations);
+  }
+
+  function setSliderDragging(dragging) {
+    if (dragging) {
+      // Drag frames arrive ~every 16ms; keep resetting an auto-resume timer so
+      // we reliably resume shortly after the frames stop, without needing the
+      // popup to send a (stale-closure-prone) drag-end message.
+      isSliderDragging = true;
+      if (sliderDragEndTimer !== null) clearTimeout(sliderDragEndTimer);
+      sliderDragEndTimer = setTimeout(() => setSliderDragging(false), 200);
+      return;
+    }
+
+    if (sliderDragEndTimer !== null) {
+      clearTimeout(sliderDragEndTimer);
+      sliderDragEndTimer = null;
+    }
+
+    if (!isSliderDragging) return;
+    isSliderDragging = false;
+
+    if (hasPendingRemovedElements || pendingAddedElements.size > 0) {
+      scheduleFontScaleMutationProcessing();
+    }
   }
 
   function applyReadingAid() {
@@ -1086,6 +1114,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     if (message.action === "updateSettings") {
       // Only animate the text transition for discrete changes; live slider
       // drags send smoothText:false so each frame applies instantly (see App.jsx).
+      setSliderDragging(message.dragging === true);
       updateState(message.settings, { smoothText: message.smoothText === true });
       if (typeof sendResponse === "function") {
         sendResponse({ ok: true });
