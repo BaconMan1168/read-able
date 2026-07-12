@@ -738,7 +738,7 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
 
   function resetPendingFontScaleMutations() {
     if (observerFrame !== null) {
-      cancelAnimationFrame(observerFrame);
+      cancelIdleCallback(observerFrame);
       observerFrame = null;
     }
 
@@ -766,7 +766,9 @@ if (!globalThis.__readableContentScriptLoaded && !isPausedSite()) {
     // reflows from dynamic page content don't jank the in-progress drag.
     if (isSliderDragging || observerFrame !== null) return;
 
-    observerFrame = requestAnimationFrame(flushFontScaleMutations);
+    // Scale added nodes during idle time so lazy-loaded page content never
+    // competes with an in-progress interaction; the timeout bounds the wait.
+    observerFrame = requestIdleCallback(flushFontScaleMutations, { timeout: 500 });
   }
 
   function setSliderDragging(dragging) {
