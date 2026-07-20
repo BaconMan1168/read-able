@@ -4,6 +4,9 @@
   "description": "Make websites easier to read with OpenDyslexic, a reading ruler, spacing controls, larger text, and high contrast.",
   "version": "2.0",
   "permissions": ["activeTab", "scripting", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "index.html"
   },

@@ -91,6 +91,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: 'index.html',
+        onboarding: 'onboarding.html',
         reader: 'reader.html',
       },
     },
