@@ -3,24 +3,7 @@ import {
   enable as enableDarkReader,
   setFetchMethod as setDarkReaderFetchMethod,
 } from "darkreader";
-
-const DEFAULT_STATE = {
-  isDyslexia: false,
-  isContrast: false,
-  contrastMode: "semantic",
-  customContrastBackground: "#000000",
-  customContrastText: "#ffffff",
-  customContrastLink: "#fffe00",
-  customContrastAccent: "#19ebfe",
-  customContrastDisabled: "#3ef240",
-  fontSize: 1,
-  letterSpacing: 0,
-  lineSpacing: 1.5,
-  readingAid: "none",
-  readingAidHeight: 72,
-  readingAidOpacity: 0.24,
-  readingAidColor: "#ffe066",
-};
+import { DEFAULT_SETTINGS as DEFAULT_STATE } from "./settings.js";
 
 const SITE_SETTINGS_KEY = "siteSettings";
 const STORAGE_DEFAULTS = {

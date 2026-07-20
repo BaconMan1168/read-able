@@ -1,25 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { StrictMode, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { DEFAULT_SETTINGS } from './settings.js';
 import './reader.css';
-
-const DEFAULT_SETTINGS = {
-  isDyslexia: false,
-  isContrast: false,
-  contrastMode: 'semantic',
-  customContrastBackground: '#000000',
-  customContrastText: '#ffffff',
-  customContrastLink: '#fffe00',
-  customContrastAccent: '#19ebfe',
-  customContrastDisabled: '#3ef240',
-  fontSize: 1,
-  letterSpacing: 0,
-  lineSpacing: 1.5,
-  readingAid: 'none',
-  readingAidHeight: 72,
-  readingAidOpacity: 0.24,
-  readingAidColor: '#ffe066',
-};
 
 const SITE_SETTINGS_KEY = 'siteSettings';
 const STORAGE_DEFAULTS = {

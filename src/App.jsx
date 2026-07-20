@@ -1,23 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { DEFAULT_SETTINGS, RECOMMENDED_PRESET } from './settings.js';
 import './App.css';
-
-const DEFAULT_SETTINGS = {
-  isDyslexia: false,
-  isContrast: false,
-  contrastMode: 'semantic',
-  customContrastBackground: '#000000',
-  customContrastText: '#ffffff',
-  customContrastLink: '#fffe00',
-  customContrastAccent: '#19ebfe',
-  customContrastDisabled: '#3ef240',
-  fontSize: 1,
-  letterSpacing: 0,
-  lineSpacing: 1.5,
-  readingAid: 'none',
-  readingAidHeight: 72,
-  readingAidOpacity: 0.24,
-  readingAidColor: '#ffe066',
-};
 
 const SITE_SETTINGS_KEY = 'siteSettings';
 const SETTINGS_STORAGE_DEFAULTS = {
@@ -481,6 +464,10 @@ function App() {
     sendSettingsToTab(DEFAULT_SETTINGS);
   };
 
+  const applyRecommendedPreset = () => {
+    updateSettings(RECOMMENDED_PRESET);
+  };
+
   const toggleSiteDisable = (checked) => {
     if (!currentDomain) return;
 
@@ -569,6 +556,15 @@ function App() {
         </div>
 
         <section className="switch-section" aria-label="Accessibility toggles">
+          <button
+            type="button"
+            className="preset-button"
+            disabled={controlsDisabled}
+            onClick={applyRecommendedPreset}
+          >
+            Use recommended preset
+          </button>
+
           <div className="switch-group">
             <span id="siteToggleLabel">Disable on this Site</span>
             <label htmlFor="siteToggle" className="switch">

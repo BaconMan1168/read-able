@@ -273,6 +273,7 @@ input:checked + .slider:before {
 }
 
 .reader-button,
+.preset-button,
 .reset-button {
   width: 100%;
   min-height: 38px;
@@ -292,6 +293,17 @@ input:checked + .slider:before {
   border-color: #20211d;
   background: #20211d;
   color: #ffffff;
+}
+
+.preset-button {
+  border-color: #317340;
+  background: #eaf7ed;
+  color: #173d20;
+}
+
+.preset-button:hover:not(:disabled) {
+  border-color: #245d31;
+  background: #ddf0e2;
 }
 
 .reader-button:hover:not(:disabled) {
