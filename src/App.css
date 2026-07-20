@@ -136,6 +136,31 @@ main {
   margin-top: -4px;
 }
 
+.advanced-settings {
+  display: grid;
+  gap: 10px;
+}
+
+.advanced-settings summary {
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid #c5c9be;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #30322e;
+  font-size: 0.88rem;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.advanced-settings[open] summary {
+  margin-bottom: 10px;
+}
+
+.advanced-settings > section + section {
+  margin-top: 10px;
+}
+
 .switch {
   position: relative;
   display: inline-block;

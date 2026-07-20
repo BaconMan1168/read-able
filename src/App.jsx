@@ -612,163 +612,168 @@ function App() {
               <span className="slider round" role="presentation"></span>
             </label>
           </div>
+        </section>
+
+        <details className="advanced-settings">
+          <summary>Customize settings</summary>
 
           {settings.isContrast && (
-            <div className="contrast-options">
-              <label htmlFor="contrastMode">Contrast Mode</label>
-              <select
-                id="contrastMode"
-                value={settings.contrastMode}
-                disabled={controlsDisabled}
-                onChange={(e) => updateSettings({ contrastMode: e.target.value })}
-              >
-                <option value="semantic">Original semantic</option>
-                <option value="dark-reader">Dark Reader B/W</option>
-                <option value="custom">Custom</option>
-              </select>
+            <section className="control-section" aria-label="Contrast settings">
+              <div className="contrast-options">
+                <label htmlFor="contrastMode">Contrast Mode</label>
+                <select
+                  id="contrastMode"
+                  value={settings.contrastMode}
+                  disabled={controlsDisabled}
+                  onChange={(e) => updateSettings({ contrastMode: e.target.value })}
+                >
+                  <option value="semantic">Original semantic</option>
+                  <option value="dark-reader">Dark Reader B/W</option>
+                  <option value="custom">Custom</option>
+                </select>
 
-              {settings.contrastMode === 'custom' && (
-                <div className="contrast-color-grid" aria-label="Custom contrast colors">
-                  <div className="color-control">
-                    <label htmlFor="customContrastBackground">Background</label>
-                    <input
-                      id="customContrastBackground"
-                      type="color"
-                      value={settings.customContrastBackground}
-                      disabled={controlsDisabled}
-                      onChange={(e) => updateSettings({ customContrastBackground: e.target.value })}
-                    />
-                  </div>
+                {settings.contrastMode === 'custom' && (
+                  <div className="contrast-color-grid" aria-label="Custom contrast colors">
+                    <div className="color-control">
+                      <label htmlFor="customContrastBackground">Background</label>
+                      <input
+                        id="customContrastBackground"
+                        type="color"
+                        value={settings.customContrastBackground}
+                        disabled={controlsDisabled}
+                        onChange={(e) => updateSettings({ customContrastBackground: e.target.value })}
+                      />
+                    </div>
 
-                  <div className="color-control">
-                    <label htmlFor="customContrastText">Text</label>
-                    <input
-                      id="customContrastText"
-                      type="color"
-                      value={settings.customContrastText}
-                      disabled={controlsDisabled}
-                      onChange={(e) => updateSettings({ customContrastText: e.target.value })}
-                    />
-                  </div>
+                    <div className="color-control">
+                      <label htmlFor="customContrastText">Text</label>
+                      <input
+                        id="customContrastText"
+                        type="color"
+                        value={settings.customContrastText}
+                        disabled={controlsDisabled}
+                        onChange={(e) => updateSettings({ customContrastText: e.target.value })}
+                      />
+                    </div>
 
-                  <div className="color-control">
-                    <label htmlFor="customContrastLink">Links</label>
-                    <input
-                      id="customContrastLink"
-                      type="color"
-                      value={settings.customContrastLink}
-                      disabled={controlsDisabled}
-                      onChange={(e) => updateSettings({ customContrastLink: e.target.value })}
-                    />
-                  </div>
+                    <div className="color-control">
+                      <label htmlFor="customContrastLink">Links</label>
+                      <input
+                        id="customContrastLink"
+                        type="color"
+                        value={settings.customContrastLink}
+                        disabled={controlsDisabled}
+                        onChange={(e) => updateSettings({ customContrastLink: e.target.value })}
+                      />
+                    </div>
 
-                  <div className="color-control">
-                    <label htmlFor="customContrastAccent">Accent</label>
-                    <input
-                      id="customContrastAccent"
-                      type="color"
-                      value={settings.customContrastAccent}
-                      disabled={controlsDisabled}
-                      onChange={(e) => updateSettings({ customContrastAccent: e.target.value })}
-                    />
-                  </div>
+                    <div className="color-control">
+                      <label htmlFor="customContrastAccent">Accent</label>
+                      <input
+                        id="customContrastAccent"
+                        type="color"
+                        value={settings.customContrastAccent}
+                        disabled={controlsDisabled}
+                        onChange={(e) => updateSettings({ customContrastAccent: e.target.value })}
+                      />
+                    </div>
 
-                  <div className="color-control">
-                    <label htmlFor="customContrastDisabled">Disabled</label>
-                    <input
-                      id="customContrastDisabled"
-                      type="color"
-                      value={settings.customContrastDisabled}
-                      disabled={controlsDisabled}
-                      onChange={(e) => updateSettings({ customContrastDisabled: e.target.value })}
-                    />
+                    <div className="color-control">
+                      <label htmlFor="customContrastDisabled">Disabled</label>
+                      <input
+                        id="customContrastDisabled"
+                        type="color"
+                        value={settings.customContrastDisabled}
+                        disabled={controlsDisabled}
+                        onChange={(e) => updateSettings({ customContrastDisabled: e.target.value })}
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            </section>
           )}
-        </section>
 
-        <section className="slide-section" aria-label="Adjustable text settings">
-          <div className="slide-container">
-            <label htmlFor="fontScale">Font Scale: {settings.fontSize}x</label>
-            <input
-              id="fontScale"
-              type="range"
-              min="0.5"
-              max={fontScaleMax}
-              step="0.05"
-              value={settings.fontSize}
+          <section className="slide-section" aria-label="Adjustable text settings">
+            <div className="slide-container">
+              <label htmlFor="fontScale">Font Scale: {settings.fontSize}x</label>
+              <input
+                id="fontScale"
+                type="range"
+                min="0.5"
+                max={fontScaleMax}
+                step="0.05"
+                value={settings.fontSize}
+                disabled={controlsDisabled}
+                onPointerDown={() => { sliderDraggingRef.current = true; }}
+                onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })}
+                className="range-slider"
+                aria-valuemin={0.5}
+                aria-valuemax={fontScaleMax}
+                aria-valuenow={settings.fontSize}
+                aria-valuetext={`Font size ${settings.fontSize} times normal`}
+                aria-label="Adjust font size"
+              />
+            </div>
+
+            <div className="slide-container">
+              <label htmlFor="letterSpacing">Letter Spacing: {settings.letterSpacing}em</label>
+              <input
+                id="letterSpacing"
+                type="range"
+                min="0"
+                max={letterSpacingMax}
+                step="0.01"
+                value={settings.letterSpacing}
+                disabled={controlsDisabled}
+                onPointerDown={() => { sliderDraggingRef.current = true; }}
+                onChange={(e) => updateSettings({ letterSpacing: Number(e.target.value) })}
+                className="range-slider"
+                aria-valuemin={0}
+                aria-valuemax={letterSpacingMax}
+                aria-valuenow={settings.letterSpacing}
+                aria-valuetext={`Letter spacing ${settings.letterSpacing} em`}
+                aria-label="Adjust letter spacing"
+              />
+            </div>
+
+            <div className="slide-container">
+              <label htmlFor="lineSpacing">Line Spacing: {settings.lineSpacing}</label>
+              <input
+                id="lineSpacing"
+                type="range"
+                min="1"
+                max="3"
+                step="0.05"
+                value={settings.lineSpacing}
+                disabled={controlsDisabled}
+                onPointerDown={() => { sliderDraggingRef.current = true; }}
+                onChange={(e) => updateSettings({ lineSpacing: Number(e.target.value) })}
+                className="range-slider"
+                aria-valuemin={1}
+                aria-valuemax={3}
+                aria-valuenow={settings.lineSpacing}
+                aria-valuetext={`Line spacing ${settings.lineSpacing}`}
+                aria-label="Adjust line spacing"
+              />
+            </div>
+          </section>
+
+          <section className="control-section" aria-label="Reading aid settings">
+            <label htmlFor="readingAid">Reading Aid</label>
+            <select
+              id="readingAid"
+              value={settings.readingAid}
               disabled={controlsDisabled}
-              onPointerDown={() => { sliderDraggingRef.current = true; }}
-              onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })}
-              className="range-slider"
-              aria-valuemin={0.5}
-              aria-valuemax={fontScaleMax}
-              aria-valuenow={settings.fontSize}
-              aria-valuetext={`Font size ${settings.fontSize} times normal`}
-              aria-label="Adjust font size"
-            />
-          </div>
+              onChange={(e) => updateSettings({ readingAid: e.target.value })}
+            >
+              <option value="none">None</option>
+              <option value="ruler">Ruler</option>
+              <option value="focus">Focus mask</option>
+            </select>
 
-          <div className="slide-container">
-            <label htmlFor="letterSpacing">Letter Spacing: {settings.letterSpacing}em</label>
-            <input
-              id="letterSpacing"
-              type="range"
-              min="0"
-              max={letterSpacingMax}
-              step="0.01"
-              value={settings.letterSpacing}
-              disabled={controlsDisabled}
-              onPointerDown={() => { sliderDraggingRef.current = true; }}
-              onChange={(e) => updateSettings({ letterSpacing: Number(e.target.value) })}
-              className="range-slider"
-              aria-valuemin={0}
-              aria-valuemax={letterSpacingMax}
-              aria-valuenow={settings.letterSpacing}
-              aria-valuetext={`Letter spacing ${settings.letterSpacing} em`}
-              aria-label="Adjust letter spacing"
-            />
-          </div>
-
-          <div className="slide-container">
-            <label htmlFor="lineSpacing">Line Spacing: {settings.lineSpacing}</label>
-            <input
-              id="lineSpacing"
-              type="range"
-              min="1"
-              max="3"
-              step="0.05"
-              value={settings.lineSpacing}
-              disabled={controlsDisabled}
-              onPointerDown={() => { sliderDraggingRef.current = true; }}
-              onChange={(e) => updateSettings({ lineSpacing: Number(e.target.value) })}
-              className="range-slider"
-              aria-valuemin={1}
-              aria-valuemax={3}
-              aria-valuenow={settings.lineSpacing}
-              aria-valuetext={`Line spacing ${settings.lineSpacing}`}
-              aria-label="Adjust line spacing"
-            />
-          </div>
-        </section>
-
-        <section className="control-section" aria-label="Reading aid settings">
-          <label htmlFor="readingAid">Reading Aid</label>
-          <select
-            id="readingAid"
-            value={settings.readingAid}
-            disabled={controlsDisabled}
-            onChange={(e) => updateSettings({ readingAid: e.target.value })}
-          >
-            <option value="none">None</option>
-            <option value="ruler">Ruler</option>
-            <option value="focus">Focus mask</option>
-          </select>
-
-          {settings.readingAid !== 'none' && (
-            <>
+            {settings.readingAid !== 'none' && (
+              <>
               <div className="slide-container">
                 <label htmlFor="readingAidHeight">Aid Height: {settings.readingAidHeight}px</label>
                 <input
@@ -813,9 +818,10 @@ function App() {
                   />
                 </div>
               )}
-            </>
-          )}
-        </section>
+              </>
+            )}
+          </section>
+        </details>
 
         <button
           type="button"
