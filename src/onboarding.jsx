@@ -4,6 +4,12 @@ import { createRoot } from 'react-dom/client';
 import { RECOMMENDED_PRESET } from './settings.js';
 import './onboarding.css';
 
+function trackFunnelEvent(eventName) {
+  chrome.runtime.sendMessage({ action: 'trackFunnelEvent', eventName }, () => {
+    void chrome.runtime.lastError;
+  });
+}
+
 function OnboardingApp() {
   const [isSaved, setIsSaved] = useState(false);
   const [message, setMessage] = useState('');
@@ -16,6 +22,7 @@ function OnboardingApp() {
       }
 
       setIsSaved(true);
+      trackFunnelEvent('onboardingPresetSaved');
       setMessage('Recommended preset saved. Open the toolbar popup any time to customize it.');
     });
   };

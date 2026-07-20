@@ -112,6 +112,12 @@ function normalizeSiteSettings(siteSettings) {
     : {};
 }
 
+function trackFunnelEvent(eventName) {
+  chrome.runtime.sendMessage({ action: 'trackFunnelEvent', eventName }, () => {
+    void chrome.runtime.lastError;
+  });
+}
+
 function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [preferenceScope, setPreferenceScope] = useState('global');
@@ -134,6 +140,8 @@ function App() {
   const sliderDraggingRef = useRef(false);
 
   useEffect(() => {
+    trackFunnelEvent('popupOpened');
+
     const syncSettings = (nextSettings) => {
       settingsRef.current = nextSettings;
       setSettings(nextSettings);
@@ -389,6 +397,7 @@ function App() {
     if (activeTabId === null || isUnsupportedPage || isReaderPage) return;
 
     setMessageError('');
+    trackFunnelEvent('readerModeStarted');
 
     const executeScript = (details) =>
       new Promise((resolve, reject) => {
@@ -419,6 +428,7 @@ function App() {
       const extraction = results?.[0]?.result;
       if (!extraction?.ok) {
         setMessageError(extraction?.error || 'Reader Mode could not read this page.');
+        trackFunnelEvent('readerModeFailed');
         return;
       }
 
@@ -426,9 +436,11 @@ function App() {
       chrome.storage.session.set({ [key]: extraction.article }, () => {
         if (chrome.runtime.lastError) {
           setMessageError('Reader Mode could not save this article.');
+          trackFunnelEvent('readerModeFailed');
           return;
         }
 
+        trackFunnelEvent('readerModeSucceeded');
         chrome.tabs.update(activeTabId, {
           url: chrome.runtime.getURL(
             `reader.html?id=${activeTabId}&url=${encodeURIComponent(extraction.article.url)}`
@@ -437,6 +449,7 @@ function App() {
       });
     } catch (error) {
       setMessageError(error.message || 'Reader Mode could not run on this page.');
+      trackFunnelEvent('readerModeFailed');
     }
   };
 
@@ -466,6 +479,7 @@ function App() {
 
   const applyRecommendedPreset = () => {
     updateSettings(RECOMMENDED_PRESET);
+    trackFunnelEvent('popupPresetApplied');
   };
 
   const toggleSiteDisable = (checked) => {
