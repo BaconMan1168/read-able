@@ -1,3 +1,4 @@
+// Replace with your hosted HTTPS survey URL before publishing.
 const UNINSTALL_SURVEY_URL = '';
 const FUNNEL_STORAGE_KEY = 'readableFunnel';
 
