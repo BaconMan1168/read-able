@@ -1,5 +1,5 @@
 // Replace with your hosted HTTPS survey URL before publishing.
-const UNINSTALL_SURVEY_URL = '';
+const UNINSTALL_SURVEY_URL = 'https://tally.so/r/aQP4RE';
 const FUNNEL_STORAGE_KEY = 'readableFunnel';
 
 const FUNNEL_DEFAULTS = {
